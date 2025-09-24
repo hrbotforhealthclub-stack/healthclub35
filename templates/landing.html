@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Companion | Цифровой ассистент для HR-процессов</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --white: #ffffff;
+            --light: #f8f9fa;
+            --dark: #1a1a2e;
+            --primary: #6a11cb;
+            --secondary: #2575fc;
+            --text: #333333;
+            --text-light: #666666;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+            line-height: 1.7;
+            background-color: var(--white);
+            overflow-x: hidden;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, var(--white) 0%, var(--light) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gradient-bg {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            clip-path: polygon(20% 0%, 100% 0%, 100% 100%, 0% 100%);
+            z-index: 0;
+        }
+
+        .hero-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            gap: 4rem;
+        }
+
+        .hero-text {
+            max-width: 600px;
+        }
+
+        .logo {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--primary);
+            text-decoration: none;
+            z-index: 2;
+        }
+
+        h1 {
+            font-size: 3.2rem;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            line-height: 1.2;
+            color: var(--dark);
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 2.5rem;
+            color: var(--text-light);
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--white);
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            text-decoration: none;
+            transition: all 0.4s ease;
+            box-shadow: 0 10px 20px rgba(106, 17, 203, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(106, 17, 203, 0.3);
+        }
+
+        .hero-image {
+            position: relative;
+            z-index: 1;
+        }
+
+        .phone-mockup {
+            width: 300px;
+            height: 600px;
+            background: var(--white);
+            border-radius: 40px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin: 0 auto;
+            position: relative;
+            border: 15px solid var(--dark);
+        }
+
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: #f0f2f5;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .phone-screen img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 6rem 2rem;
+            background-color: var(--white);
+            position: relative;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--dark);
+            font-weight: 700;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 4rem;
+            color: var(--text-light);
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--white);
+            border-radius: 15px;
+            padding: 2.5rem 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            transition: all 0.4s ease;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+        }
+
+        .feature-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, rgba(106, 17, 203, 0.1) 0%, rgba(37, 117, 252, 0.1) 100%);
+            color: var(--primary);
+            font-size: 1.8rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            color: var(--dark);
+        }
+
+        .feature-card p {
+            color: var(--text-light);
+            margin-bottom: 1.5rem;
+        }
+
+        /* Admin Panel Section */
+        .admin-panel {
+            padding: 6rem 2rem;
+            background-color: var(--light);
+        }
+
+        .admin-panel-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .admin-panel-image {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .screenshot {
+            width: 100%;
+            max-width: 270px;
+            aspect-ratio: 9/19;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            overflow: hidden;
+            border: 8px solid var(--dark);
+        }
+
+        .screenshot img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .admin-panel-text h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+            font-weight: 700;
+        }
+
+        .admin-panel-text p {
+            font-size: 1.1rem;
+            color: var(--text-light);
+            margin-bottom: 2rem;
+        }
+
+        .admin-panel-list {
+            list-style: none;
+        }
+
+        .admin-panel-list li {
+            margin-bottom: 1.2rem;
+            position: relative;
+            padding-left: 2rem;
+            font-size: 1.05rem;
+        }
+
+        .admin-panel-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 24px;
+            height: 24px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        /* How It Works */
+        .how-it-works {
+            padding: 6rem 2rem;
+            background-color: var(--white);
+        }
+
+        .steps {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .step {
+            display: flex;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .step:last-child {
+            margin-bottom: 0;
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+            margin-right: 2rem;
+        }
+
+        .step-content {
+            background: var(--white);
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            flex-grow: 1;
+        }
+
+        .step-content h3 {
+            font-size: 1.4rem;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+        }
+
+        /* Final CTA */
+        .final-cta {
+            padding: 8rem 2rem;
+            text-align: center;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--white);
+        }
+
+        .final-cta h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .final-cta p {
+            max-width: 700px;
+            margin: 0 auto 3rem;
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .cta-button.white {
+            background: var(--white);
+            color: var(--primary);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .cta-button.white:hover {
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--dark);
+            color: var(--white);
+            padding: 4rem 2rem;
+        }
+
+        .footer-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 3rem;
+        }
+
+        .footer-column h3 {
+            color: var(--white);
+            margin-bottom: 1.5rem;
+            font-size: 1.2rem;
+        }
+
+        .footer-column ul {
+            list-style: none;
+        }
+
+        .footer-column li {
+            margin-bottom: 0.8rem;
+        }
+
+        .footer-column a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-column a:hover {
+            color: var(--white);
+        }
+
+        .copyright {
+            text-align: center;
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.5);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .hero-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .hero-text {
+                order: 2;
+            }
+            .hero-image {
+                order: 1;
+                margin-bottom: 3rem;
+            }
+
+            .gradient-bg {
+                clip-path: polygon(0 0, 100% 0, 100% 70%, 0% 100%);
+                height: 70%;
+                width: 100%;
+            }
+
+            .admin-panel-container {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .admin-panel-list {
+                text-align: left;
+            }
+
+            .admin-panel-image {
+                order: -1;
+                margin-bottom: 3rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            .section-title, .admin-panel-text h2, .final-cta h2 {
+                font-size: 2.2rem;
+            }
+
+            .step {
+                flex-direction: column;
+                align-items: center;
+                 text-align: center;
+            }
+
+            .step-number {
+                margin-right: 0;
+                margin-bottom: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                line-height: 1.6;
+            }
+
+            .hero-content {
+                padding: 2rem 1.5rem;
+            }
+
+            h1 {
+                font-size: 2.2rem;
+            }
+
+            .hero p {
+                font-size: 1.1rem;
+            }
+
+             .logo {
+                font-size: 1.2rem;
+                top: 1.5rem;
+                left: 1.5rem;
+            }
+
+            .cta-button {
+                padding: 0.9rem 2rem;
+                font-size: 1rem;
+            }
+
+            .phone-mockup {
+                width: 260px;
+                height: 520px;
+                border-width: 12px;
+                border-radius: 30px;
+            }
+
+            .features,
+            .admin-panel,
+            .how-it-works {
+                padding: 4rem 1.5rem;
+            }
+
+            .final-cta {
+                padding: 5rem 1.5rem;
+            }
+
+            .section-title, .admin-panel-text h2, .final-cta h2 {
+                font-size: 2rem;
+            }
+
+            .section-subtitle {
+                font-size: 1rem;
+                margin-bottom: 3rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-container {
+                text-align: center;
+                gap: 2rem;
+            }
+
+            .copyright {
+                margin-top: 3rem;
+                padding-top: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section class="hero">
+        <a href="#" class="logo">HR Companion</a>
+        <div class="gradient-bg"></div>
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1>HR Companion: Ваш цифровой ассистент в Telegram</h1>
+                <p>Познакомьтесь с умным ассистентом, который упрощает HR-процессы: от адаптации новых сотрудников до ведения базы знаний и сбора обратной связи.</p>
+                <a href="https://t.me/health35minhrbot" target="_blank" class="cta-button">Открыть в Telegram →</a>
+            </div>
+            <div class="hero-image">
+                <div class="phone-mockup">
+                    <div class="phone-screen">
+                        <img src="{{ url_for('static', filename='images/photo_2025-08-01_10-37-18.jpg') }}" alt="Интерфейс HR Companion для сотрудника">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="features">
+        <h2 class="section-title">Основные возможности бота</h2>
+        <p class="section-subtitle">HR Companion предлагает набор инструментов для улучшения взаимодействия внутри команды и автоматизации повседневных задач.</p>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📍</div>
+                <h3>Check-in по геолокации</h3>
+                <p>Бот фиксирует время прихода и ухода, когда сотрудник находится в радиусе офиса. Позволяет вести табель учета рабочего времени.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📚</div>
+                <h3>Единая база знаний</h3>
+                <p>Все корпоративные документы, регламенты и политики компании доступны 24/7 прямо в мессенджере. Легкий поиск и быстрый доступ.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎓</div>
+                <h3>Авто-адаптация</h3>
+                <p>Новые сотрудники получают материалы по своей должности и проходят тестирование прямо в боте для проверки знаний.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">💡</div>
+                <h3>Сбор обратной связи</h3>
+                <p>Сотрудники могут анонимно или открыто делиться идеями и предложениями с руководством через удобный интерфейс.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📅</div>
+                <h3>Общий календарь</h3>
+                <p>Все корпоративные мероприятия, дни рождения коллег и важные даты в одном месте с автоматическими напоминаниями.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">👥</div>
+                <h3>Справочник команды</h3>
+                <p>Интерактивная структура компании. Можно посмотреть контакты, должность и написать коллеге в Telegram в один клик.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-panel">
+        <div class="admin-panel-container">
+            <div class="admin-panel-text">
+                <h2>Функционал для HR-менеджера</h2>
+                <p>Все управление происходит в удобном интерфейсе прямо в Telegram, предоставляя HR-специалисту быстрый доступ к ключевым функциям.</p>
+
+                <ul class="admin-panel-list">
+                    <li><strong>Управление сотрудниками:</strong> Добавление, увольнение и редактирование профилей в несколько кликов.</li>
+                    <li><strong>Контроль посещаемости:</strong> Просмотр детальных отчетов о приходах и уходах по любому сотруднику.</li>
+                    <li><strong>Создание ивентов:</strong> Организация мероприятий и информирование всей команды с помощью уведомлений.</li>
+                    <li><strong>Сбор идей:</strong> Получение обратной связи от команды в одном месте и отслеживание предложений.</li>
+                    <li><strong>Генерация кодов доступа:</strong> Обеспечение безопасного подключения новых сотрудников с помощью уникальных кодов.</li>
+                </ul>
+            </div>
+
+            <div class="admin-panel-image">
+                <div class="screenshot">
+                    <img src="{{ url_for('static', filename='images/photo_2025-08-01_11-25-05.jpg') }}" alt="Панель администратора в HR Companion" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="how-it-works">
+        <h2 class="section-title">Как это работает?</h2>
+        <p class="section-subtitle">Взаимодействие с ботом построено максимально просто и интуитивно.</p>
+
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Запуск бота</h3>
+                    <p>Сотрудник переходит по ссылке, запускает бота в своем Telegram и проходит быструю регистрацию по коду доступа от компании.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Знакомство с интерфейсом</h3>
+                    <p>После регистрации открывается главное меню со всеми доступными разделами: база знаний, календарь, контакты коллег и другие функции.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Ежедневное использование</h3>
+                    <p>Сотрудник использует бота для повседневных задач: отмечает приход на работу, ищет информацию и участвует в жизни компании.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="final-cta" id="contact">
+        <h2>Попробуйте HR Companion в действии</h2>
+        <p>Лучший способ оценить возможности ассистента — это познакомиться с ним лично. Запустите бота и изучите его функции.</p>
+        <a href="https://t.me/health35minhrbot" target="_blank" class="cta-button white">Запустить бота →</a>
+    </section>
+
+    <footer>
+        <div class="footer-container">
+            <div class="footer-column">
+                <h3>HR Companion</h3>
+                <ul>
+                    <li><a href="#">О продукте</a></li>
+                    <li><a href="#">Возможности</a></li>
+                    <li><a href="#">Обновления</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-column">
+                <h3>Поддержка</h3>
+                <ul>
+                    <li><a href="#">Документация</a></li>
+                    <li><a href="#">Частые вопросы</a></li>
+                    <li><a href="#">Контакты</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-column">
+                <h3>Компания</h3>
+                <ul>
+                    <li><a href="#">О нас</a></li>
+                    <li><a href="#">Блог</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-column">
+                <h3>Правовая информация</h3>
+                <ul>
+                    <li><a href="#">Политика конфиденциальности</a></li>
+                    <li><a href="#">Условия использования</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="copyright">
+            © 2025 HR Companion. Все права защищены.
+        </div>
+    </footer>
+
+    <script>
+        // Анимация при скролле
+        document.addEventListener('DOMContentLoaded', function() {
+            // Замена неработающих ссылок на изображения на плейсхолдеры
+            const images = document.querySelectorAll('img');
+            images.forEach(img => {
+                img.onerror = function() {
+                    const altText = this.alt || 'Image';
+                    const parent = this.parentElement;
+                    // Попытка получить размеры родительского элемента для корректного плейсхолдера
+                    const width = parent.offsetWidth || parseInt(parent.style.width) || 300;
+                    const height = parent.offsetHeight || parseInt(parent.style.height) || 600;
+                    this.src = `https://placehold.co/${width}x${height}/f0f2f5/333?text=${encodeURIComponent(altText)}`;
+                    this.onerror = null; // Предотвратить бесконечный цикл, если плейсхолдер тоже недоступен
+                };
+            });
+
+            const animateElements = document.querySelectorAll('.feature-card, .admin-panel-text, .admin-panel-image, .step');
+
+            if ('IntersectionObserver' in window) {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('animate__animated', 'animate__fadeInUp');
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.1 });
+
+                animateElements.forEach(element => {
+                    observer.observe(element);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
