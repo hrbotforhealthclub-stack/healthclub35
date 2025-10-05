@@ -3,17 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HR Bot Admin Panel</title>
+  <title>HR Bot Admin Panel (AJAX)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
   />
-    <link
-  rel="stylesheet"
-  href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css"
-/>
-<script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
   <script>
@@ -58,6 +53,23 @@
         overflow: hidden;
         transition: max-height 0.3s ease-out;
     }
+    /* Стиль для кнопок во время загрузки */
+    button:disabled {
+        cursor: not-allowed;
+        filter: brightness(0.9);
+    }
+    .loader {
+      display: inline-block;
+      vertical-align: middle;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 50%;
+      border-top-color: #fff;
+      width: 1.1em;
+      height: 1.1em;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 0.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body class="antialiased text-gray-800 h-full">
@@ -67,8 +79,11 @@
         {% if messages %}
           {% for category, message in messages %}
             {% set colors = {'info': 'blue', 'success': 'green', 'danger': 'red', 'warning': 'yellow'} %}
-            <div class="alert-message bg-white/80 backdrop-blur-sm border-l-4 border-{{ colors[category] }}-500 text-gray-800 p-4 rounded-lg shadow-xl flex items-start" role="alert" onclick="this.remove()">
-              <div><p class="font-semibold text-sm">{{ message }}</p></div>
+            <div class="alert-message bg-white/80 backdrop-blur-sm border-l-4 border-{{ colors[category] }}-500 text-gray-800 p-4 rounded-lg shadow-xl flex items-start justify-between" role="alert">
+              <div class="pr-3"><p class="font-semibold text-sm">{{ message }}</p></div>
+              <button type="button" class="alert-close ml-2 text-gray-400 hover:text-gray-600" aria-label="Закрыть">
+                <i class="bi bi-x-lg"></i>
+              </button>
             </div>
           {% endfor %}
         {% endif %}
@@ -83,46 +98,22 @@
         <h1 class="text-xl font-bold text-white"><i class="bi bi-robot mr-2"></i> HR Bot Panel</h1>
       </div>
       <nav id="sidebar-nav" class="flex-grow p-4 space-y-2 overflow-y-auto">
-  <a href="#" data-target="dashboard" class="sidebar-link flex items-center p-3 rounded-lg">
-    <i class="bi bi-grid-1x2-fill w-6 text-gray-500"></i><span class="ml-3">Главная</span>
-  </a>
-  <a href="#" data-target="employees" class="sidebar-link flex items-center p-3 rounded-lg">
-    <i class="bi bi-people-fill w-6 text-gray-500"></i><span class="ml-3">Сотрудники</span>
-  </a>
-  <a href="#" data-target="attendance" class="sidebar-link flex items-center p-3 rounded-lg">
-    <i class="bi bi-calendar-check-fill w-6 text-gray-500"></i><span class="ml-3">Посещаемость</span>
-  </a>
-  <a href="#" data-target="customization" class="sidebar-link flex items-center p-3 rounded-lg">
-    <i class="bi bi-pencil-square w-6 text-gray-500"></i><span class="ml-3">Контент и Сценарии</span>
-  </a>
-  <a href="#" data-target="onboarding" class="sidebar-link flex items-center p-3 rounded-lg">
-    <i class="bi bi-mortarboard-fill w-6 text-gray-500"></i><span class="ml-3">Тренинг и Квизы</span>
-  </a>
-  <a href="#" data-target="events" class="sidebar-link flex items-center p-3 rounded-lg">
-    <i class="bi bi-calendar-event-fill w-6 text-gray-500"></i><span class="ml-3">Ивенты</span>
-  </a>
-  <a href="#" data-target="ideas" class="sidebar-link flex items-center p-3 rounded-lg">
-    <i class="bi bi-lightbulb-fill w-6 text-gray-500"></i><span class="ml-3">Идеи</span>
-  </a>
-  <a href="#" data-target="broadcast" class="sidebar-link flex items-center p-3 rounded-lg">
-    <i class="bi bi-megaphone-fill w-6 text-gray-500"></i><span class="ml-3">Рассылки</span>
-  </a>
-  <a href="#" data-target="knowledge" class="sidebar-link flex items-center p-3 rounded-lg">
-    <i class="bi bi-book-half w-6 text-gray-500"></i><span class="ml-3">База знаний</span>
-  </a>
-  <a href="#" data-target="config" class="sidebar-link flex items-center p-3 rounded-lg">
-    <i class="bi bi-gear-fill w-6 text-gray-500"></i><span class="ml-3">Настройки</span>
-  </a>
-</nav>
-
-<!-- Кнопка logout внизу сайдбара -->
-<div class="p-4 border-t">
-  <a href="{{ url_for('logout') }}"
-     class="w-full inline-flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition">
-    <i class="bi bi-box-arrow-right mr-2"></i> Выйти
-  </a>
-</div>
-
+        <a href="#" data-target="dashboard" class="sidebar-link flex items-center p-3 rounded-lg"><i class="bi bi-grid-1x2-fill w-6 text-gray-500"></i><span class="ml-3">Главная</span></a>
+        <a href="#" data-target="employees" class="sidebar-link flex items-center p-3 rounded-lg"><i class="bi bi-people-fill w-6 text-gray-500"></i><span class="ml-3">Сотрудники</span></a>
+        <a href="#" data-target="attendance" class="sidebar-link flex items-center p-3 rounded-lg"><i class="bi bi-calendar-check-fill w-6 text-gray-500"></i><span class="ml-3">Посещаемость</span></a>
+        <a href="#" data-target="customization" class="sidebar-link flex items-center p-3 rounded-lg"><i class="bi bi-pencil-square w-6 text-gray-500"></i><span class="ml-3">Контент и Сценарии</span></a>
+        <a href="#" data-target="onboarding" class="sidebar-link flex items-center p-3 rounded-lg"><i class="bi bi-mortarboard-fill w-6 text-gray-500"></i><span class="ml-3">Тренинг и Квизы</span></a>
+        <a href="#" data-target="events" class="sidebar-link flex items-center p-3 rounded-lg"><i class="bi bi-calendar-event-fill w-6 text-gray-500"></i><span class="ml-3">Ивенты</span></a>
+        <a href="#" data-target="ideas" class="sidebar-link flex items-center p-3 rounded-lg"><i class="bi bi-lightbulb-fill w-6 text-gray-500"></i><span class="ml-3">Идеи</span></a>
+        <a href="#" data-target="broadcast" class="sidebar-link flex items-center p-3 rounded-lg"><i class="bi bi-megaphone-fill w-6 text-gray-500"></i><span class="ml-3">Рассылки</span></a>
+        <a href="#" data-target="knowledge" class="sidebar-link flex items-center p-3 rounded-lg"><i class="bi bi-book-half w-6 text-gray-500"></i><span class="ml-3">База знаний</span></a>
+        <a href="#" data-target="config" class="sidebar-link flex items-center p-3 rounded-lg"><i class="bi bi-gear-fill w-6 text-gray-500"></i><span class="ml-3">Настройки</span></a>
+      </nav>
+      <div class="p-4 border-t">
+        <a href="{{ url_for('logout') }}" class="w-full inline-flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition">
+          <i class="bi bi-box-arrow-right mr-2"></i> Выйти
+        </a>
+      </div>
     </aside>
 
     <div class="flex-1 flex flex-col">
@@ -172,17 +163,16 @@
 
       <div id="employees-content" class="content-section">
           <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0">
-  <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Сотрудники</h1>
-  <div class="flex items-center gap-3">
-   <a href="{{ url_for('export_employees_xlsx') }}" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center shadow hover:shadow-lg transition">
-  <i class="bi bi-file-earmark-spreadsheet mr-2"></i> Экспорт Excel
-</a>
-
-    <button data-modal-target="add-employee" class="bg-primary hover:bg-primary-hover text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center shadow hover:shadow-lg transition">
-      <i class="bi bi-plus-lg mr-2"></i> Добавить сотрудника
-    </button>
-  </div>
-</div>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Сотрудники</h1>
+            <div class="flex items-center gap-3">
+              <a href="{{ url_for('export_employees_xlsx') }}" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center shadow hover:shadow-lg transition">
+                <i class="bi bi-file-earmark-spreadsheet mr-2"></i> Экспорт Excel
+              </a>
+              <button data-modal-target="add-employee" class="bg-primary hover:bg-primary-hover text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center shadow hover:shadow-lg transition">
+                <i class="bi bi-plus-lg mr-2"></i> Добавить сотрудника
+              </button>
+            </div>
+          </div>
 
           <div class="space-y-8">
               <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg">
@@ -190,49 +180,50 @@
                 <input id="searchEmployees" type="text" class="w-full rounded-md border-gray-300 shadow-sm p-3 mb-4 focus:ring-primary focus:border-primary" placeholder="Поиск по активным сотрудникам…">
                 <div class="overflow-x-auto">
                   <table id="employeesTable" class="w-full text-sm text-left text-gray-600">
-    <thead class="bg-gray-50 text-xs uppercase text-gray-700">
-        <tr>
-          <th class="px-6 py-3 rounded-l-lg">Сотрудник</th>
-          <th class="px-6 py-3">Роль</th>
-          <th class="px-6 py-3">Статус</th> <th class="px-6 py-3 text-right rounded-r-lg">Действия</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for emp in employees %}
-          <tr class="bg-white border-b hover:bg-gray-50">
-            <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-              <div class="font-semibold">{{ emp.name }}</div>
-              <div class="text-xs text-gray-500">{{ emp.email }}</div>
-            </td>
-            <td class="px-6 py-4">
-              <span class="px-2 py-1 bg-indigo-100 text-primary font-medium rounded-full text-xs">
-                {{ emp.role }}
-              </span>
-            </td>
-            <td class="px-6 py-4">
-                <div class="flex flex-col space-y-1">
-                    {% if emp.telegram_id %}
-                        <span class="flex items-center text-xs font-medium text-green-700"><i class="bi bi-check-circle-fill mr-1.5"></i> Telegram</span>
-                    {% else %}
-                        <span class="flex items-center text-xs font-medium text-gray-500"><i class="bi bi-x-circle-fill mr-1.5"></i> Telegram</span>
-                    {% endif %}
-                    {% if emp.training_passed %}
-                        <span class="flex items-center text-xs font-medium text-green-700"><i class="bi bi-check-circle-fill mr-1.5"></i> Тренинг</span>
-                    {% else %}
-                        <span class="flex items-center text-xs font-medium text-gray-500"><i class="bi bi-x-circle-fill mr-1.5"></i> Тренинг</span>
-                    {% endif %}
-                </div>
-            </td>
-            <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
-              <button data-modal-target="edit-employee-{{ emp.id }}" class="p-2 text-gray-500 hover:text-primary rounded-full hover:bg-gray-100 transition"><i class="bi bi-pencil-fill"></i></button>
-              <button data-modal-target="actions-employee-{{ emp.id }}" class="p-2 text-gray-500 hover:text-secondary rounded-full hover:bg-gray-100 transition"><i class="bi bi-three-dots-vertical"></i></button>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="4" class="py-8 text-center text-gray-500">Активных сотрудников нет.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-700">
+                        <tr>
+                          <th class="px-6 py-3 rounded-l-lg">Сотрудник</th>
+                          <th class="px-6 py-3">Роль</th>
+                          <th class="px-6 py-3">Статус</th>
+                          <th class="px-6 py-3 text-right rounded-r-lg">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in employees %}
+                          <tr class="bg-white border-b hover:bg-gray-50" data-employee-id="{{ emp.id }}">
+                            <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                              <div class="font-semibold name-cell">{{ emp.name }}</div>
+                              <div class="text-xs text-gray-500 email-cell">{{ emp.email }}</div>
+                            </td>
+                            <td class="px-6 py-4 role-cell">
+                              <span class="px-2 py-1 bg-indigo-100 text-primary font-medium rounded-full text-xs">
+                                {{ emp.role }}
+                              </span>
+                            </td>
+                            <td class="px-6 py-4 status-cell">
+                                <div class="flex flex-col space-y-1">
+                                    {% if emp.telegram_id %}
+                                        <span class="flex items-center text-xs font-medium text-green-700"><i class="bi bi-check-circle-fill mr-1.5"></i> Telegram</span>
+                                    {% else %}
+                                        <span class="flex items-center text-xs font-medium text-gray-500"><i class="bi bi-x-circle-fill mr-1.5"></i> Telegram</span>
+                                    {% endif %}
+                                    {% if emp.training_passed %}
+                                        <span class="flex items-center text-xs font-medium text-green-700"><i class="bi bi-check-circle-fill mr-1.5"></i> Тренинг</span>
+                                    {% else %}
+                                        <span class="flex items-center text-xs font-medium text-gray-500"><i class="bi bi-x-circle-fill mr-1.5"></i> Тренинг</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                              <button data-modal-target="edit-employee-{{ emp.id }}" class="p-2 text-gray-500 hover:text-primary rounded-full hover:bg-gray-100 transition"><i class="bi bi-pencil-fill"></i></button>
+                              <button data-modal-target="actions-employee-{{ emp.id }}" class="p-2 text-gray-500 hover:text-secondary rounded-full hover:bg-gray-100 transition"><i class="bi bi-three-dots-vertical"></i></button>
+                            </td>
+                          </tr>
+                        {% else %}
+                          <tr id="no-employees-row"><td colspan="4" class="py-8 text-center text-gray-500">Активных сотрудников нет.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                  </table>
                 </div>
               </div>
               <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg">
@@ -266,66 +257,44 @@
           </div>
       </div>
 
-
-<div id="attendance-content" class="content-section">
-    <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Журнал посещаемости</h1>
-    <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg">
-      <input id="searchAttendance" type="text" class="w-full rounded-md border-gray-300 shadow-sm p-3 mb-4 focus:ring-primary focus:border-primary" placeholder="Поиск по имени, дате...">
-      <div class="overflow-x-auto max-h-[70vh]">
-        <table id="attendanceTable" class="w-full text-sm text-left text-gray-600">
-          <thead class="bg-gray-50 text-xs uppercase text-gray-700 sticky top-0">
-              <tr>
-                <th class="px-6 py-3 rounded-l-lg">Сотрудник</th>
-                <th class="px-6 py-3">Дата</th>
-                <th class="px-6 py-3">Приход</th>
-                <th class="px-6 py-3 rounded-r-lg">Уход</th>
-              </tr>
-          </thead>
-          <tbody class="bg-white">
-              {% for record, employee_name in attendance_records %}
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                    {{ employee_name }}
-                  </td>
-                  <td class="px-6 py-4">
-{{ record.date|fmt_date('%d.%m.%Y') }}
-                  </td>
-                  <td class="px-6 py-4 text-green-700 font-mono">
-          {% if record.arrival_time %}{{ record.arrival_time|fmt_time('%H:%M:%S') }}{% else %}—{% endif %}
-
-                  </td>
-               <td class="px-6 py-4 text-red-700 font-mono">
-  {% if record.departure_time %}
-    {{ record.departure_time|fmt_time('%H:%M:%S') }}
-  {% else %}
-    <span class="text-gray-400">Еще на месте</span>
-  {% endif %}
-</td>
-
-                </tr>
-              {% else %}
-                <tr><td colspan="4" class="py-8 text-center text-gray-500">Записей о посещаемости пока нет.</td></tr>
-              {% endfor %}
-          </tbody>
-        </table>
+      <div id="attendance-content" class="content-section">
+          <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Журнал посещаемости</h1>
+          <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg">
+            <input id="searchAttendance" type="text" class="w-full rounded-md border-gray-300 shadow-sm p-3 mb-4 focus:ring-primary focus:border-primary" placeholder="Поиск по имени, дате...">
+            <div class="overflow-x-auto max-h-[70vh]">
+              <table id="attendanceTable" class="w-full text-sm text-left text-gray-600">
+                <thead class="bg-gray-50 text-xs uppercase text-gray-700 sticky top-0">
+                    <tr>
+                      <th class="px-6 py-3 rounded-l-lg">Сотрудник</th>
+                      <th class="px-6 py-3">Дата</th>
+                      <th class="px-6 py-3">Приход</th>
+                      <th class="px-6 py-3 rounded-r-lg">Уход</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white">
+                    {% for record, employee_name in attendance_records %}
+                      <tr class="border-b hover:bg-gray-50">
+                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{{ employee_name }}</td>
+                        <td class="px-6 py-4">{{ record.date|fmt_date('%d.%m.%Y') }}</td>
+                        <td class="px-6 py-4 text-green-700 font-mono">{% if record.arrival_time %}{{ record.arrival_time|fmt_time('%H:%M:%S') }}{% else %}—{% endif %}</td>
+                        <td class="px-6 py-4 text-red-700 font-mono">{% if record.departure_time %}{{ record.departure_time|fmt_time('%H:%M:%S') }}{% else %}<span class="text-gray-400">Еще на месте</span>{% endif %}</td>
+                      </tr>
+                    {% else %}
+                      <tr><td colspan="4" class="py-8 text-center text-gray-500">Записей о посещаемости пока нет.</td></tr>
+                    {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
       </div>
-    </div>
-</div>
 
       <div id="customization-content" class="content-section">
           <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Контент и Сценарии</h1>
-
           <div class="border-b border-gray-200 mb-6 overflow-x-auto">
               <nav class="-mb-px flex space-x-6" id="customization-sub-tabs">
-                  <button data-sub-target="sub-texts" class="sub-tab-button py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-primary border-transparent whitespace-nowrap">
-                      <i class="bi bi-fonts mr-2"></i>Тексты бота
-                  </button>
-                  <button data-sub-target="sub-scenarios" class="sub-tab-button py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-primary border-transparent whitespace-nowrap">
-                      <i class="bi bi-signpost-split-fill mr-2"></i>Сценарии онбординга
-                  </button>
-                  <button data-sub-target="sub-guides" class="sub-tab-button py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-primary border-transparent whitespace-nowrap">
-        <i class="bi bi-file-earmark-ruled-fill mr-2"></i>Регламенты и Гайды
-    </button>
+                  <button data-sub-target="sub-texts" class="sub-tab-button py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-primary border-transparent whitespace-nowrap"><i class="bi bi-fonts mr-2"></i>Тексты бота</button>
+                  <button data-sub-target="sub-scenarios" class="sub-tab-button py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-primary border-transparent whitespace-nowrap"><i class="bi bi-signpost-split-fill mr-2"></i>Сценарии онбординга</button>
+                  <button data-sub-target="sub-guides" class="sub-tab-button py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-primary border-transparent whitespace-nowrap"><i class="bi bi-file-earmark-ruled-fill mr-2"></i>Регламенты и Гайды</button>
               </nav>
           </div>
 
@@ -335,15 +304,15 @@
                 <p class="text-gray-500 mb-6">Здесь можно изменить любые стандартные фразы, которые использует бот.</p>
                 <div class="space-y-4">
                     {% for text in bot_texts %}
-                    <form action="{{ url_for('update_text', text_id=text.id) }}" method="POST">
-                        <div class="bg-gray-50 p-4 rounded-lg border">
-                            <label class="font-semibold text-gray-800">{{ text.id }}</label>
-                            <p class="text-sm text-gray-500 mb-2">{{ text.description }}</p>
-                            <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-                                <textarea name="text" rows="2" class="flex-grow mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-primary focus:border-primary">{{ text.text }}</textarea>
-                                <button type="submit" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow hover:shadow-md transition flex-shrink-0">Сохранить</button>
-                            </div>
-                        </div>
+                    <form action="{{ url_for('update_text', text_id=text.id) }}" method="POST" data-action="update-text">
+                      <div class="bg-gray-50 p-4 rounded-lg border">
+                          <label class="font-semibold text-gray-800">{{ text.id }}</label>
+                          <p class="text-sm text-gray-500 mb-2">{{ text.description }}</p>
+                          <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                              <textarea name="text" rows="2" class="flex-grow mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-primary focus:border-primary">{{ text.text }}</textarea>
+                              <button type="submit" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow hover:shadow-md transition flex-shrink-0">Сохранить</button>
+                          </div>
+                      </div>
                     </form>
                     {% endfor %}
                 </div>
@@ -359,7 +328,12 @@
                     <div class="bg-white rounded-lg border">
                         <div class="accordion-header cursor-pointer p-4 flex justify-between items-center hover:bg-gray-50">
                             <h4 class="font-medium text-lg text-primary-dark">Роль: <span class="font-bold">{{ role.name }}</span></h4>
-                            <i class="bi bi-chevron-down accordion-icon transition-transform text-gray-500"></i>
+                            <div class="flex items-center space-x-2">
+                                <button data-modal-target="copy-settings-{{ role.name|urlencode }}" class="px-3 py-1 bg-gray-200 text-gray-700 text-xs font-semibold rounded-full hover:bg-gray-300 transition flex items-center">
+                                    <i class="bi bi-clipboard-plus mr-1.5"></i>Копировать
+                                </button>
+                                <i class="bi bi-chevron-down accordion-icon transition-transform text-gray-500"></i>
+                            </div>
                         </div>
                         <div class="accordion-content border-t">
                             <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -372,15 +346,16 @@
                                                 <p class="font-semibold">{{ q.question_text }}</p>
                                                 <p class="text-xs text-blue-600">Ключ: {{ q.data_key }} | {{ "Обязательный" if q.is_required else "Необязательный" }}</p>
                                             </div>
-                                            <form action="{{ url_for('delete_onboarding_question', q_id=q.id) }}" method="POST" onsubmit="return confirm('Удалить вопрос?');">
-                                                <button class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+                                            <form action="{{ url_for('delete_onboarding_question', q_id=q.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить вопрос?" data-parent-selector="div.quiz-card">
+                                              <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
                                             </form>
                                         </div>
                                         {% endfor %}
                                     </div>
-                                    <button data-role="{{ role.name }}" class="save-question-order-btn px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm shadow transition">Сохранить порядок</button>
-
-                                    <form action="{{ url_for('add_onboarding_question', role=role.name) }}" method="POST" class="border p-4 rounded-lg mt-4 space-y-3">
+                                    <form action="{{ url_for('reorder_onboarding_question') }}" method="POST" data-action="reorder-onboarding-question" data-role="{{ role.name }}">
+                                      <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm shadow transition">Сохранить порядок</button>
+                                    </form>
+                                    <form action="{{ url_for('add_onboarding_question', role=role.name) }}" method="POST" data-action="add-onboarding-question" data-role="{{ role.name }}" class="border p-4 rounded-lg mt-4 space-y-3">
                                         <h6 class="font-semibold">Добавить новый вопрос</h6>
                                         <input name="question_text" placeholder="Текст вопроса (напр., 'Какое у вас хобби?')" required class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
                                         <div>
@@ -404,15 +379,16 @@
                                                <p class="font-medium">{{ step.message_text or "Только файл" }}</p>
                                                {% if step.file_path %}<p class="text-xs text-green-600">Файл: {{ step.file_type }}</p>{% endif %}
                                            </div>
-                                            <form action="{{ url_for('delete_onboarding_step', step_id=step.id) }}" method="POST" onsubmit="return confirm('Удалить шаг?');">
-                                                <button class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+                                            <form action="{{ url_for('delete_onboarding_step', step_id=step.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить шаг?" data-parent-selector="div.quiz-card">
+                                              <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
                                             </form>
                                         </div>
                                         {% endfor %}
                                     </div>
-                                    <button data-role="{{ role.name }}" class="save-step-order-btn px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm shadow transition">Сохранить порядок</button>
-
-                                    <form action="{{ url_for('add_onboarding_step', role=role.name) }}" method="POST" enctype="multipart/form-data" class="border p-4 rounded-lg mt-4 space-y-3">
+                                    <form action="{{ url_for('reorder_onboarding_step') }}" method="POST" data-action="reorder-onboarding-step" data-role="{{ role.name }}">
+                                      <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm shadow transition">Сохранить порядок</button>
+                                    </form>
+                                    <form action="{{ url_for('add_onboarding_step', role=role.name) }}" method="POST" enctype="multipart/form-data" class="border p-4 rounded-lg mt-4 space-y-3" data-action="add-onboarding-step" data-role="{{ role.name }}">
                                         <h6 class="font-semibold">Добавить новый шаг</h6>
                                         <textarea name="message_text" placeholder="Текст сообщения (можно оставить пустым)" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary"></textarea>
                                         <input type="file" name="file" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100">
@@ -433,48 +409,48 @@
               </div>
           </div>
           <div id="sub-guides-content" class="sub-tab-content">
-    <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg">
-        <h3 class="text-2xl font-semibold mb-1 text-gray-800">Регламенты и гайды по должностям</h3>
-        <p class="text-gray-500 mb-6">Здесь можно добавить документы и инструкции для каждой роли.</p>
-        <div class="space-y-4" id="rolesGuidesAccordion">
-            {% for role in roles %}
-            <div class="bg-white rounded-lg border">
-                <div class="accordion-header cursor-pointer p-4 flex justify-between items-center hover:bg-gray-50">
-                    <h4 class="font-medium text-lg text-primary-dark">Роль: <span class="font-bold">{{ role.name }}</span></h4>
-                    <i class="bi bi-chevron-down accordion-icon transition-transform text-gray-500"></i>
-                </div>
-                <div class="accordion-content border-t p-6">
-                    <div id="guides-list-{{ role.name }}" class="space-y-3 mb-6">
-                        {% for guide in role_guides_data[role.name] %}
-                        <div class="flex justify-between items-start bg-gray-50 p-3 rounded-lg shadow-sm border" data-id="{{ guide.id }}">
-                            <div>
-                                <p class="font-semibold">{{ guide.title }}</p>
-                                <p class="text-xs text-gray-600">{{ guide.content }}</p>
-                                {% if guide.file_path %}<p class="text-xs text-blue-600">Прикреплен файл</p>{% endif %}
+            <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg">
+                <h3 class="text-2xl font-semibold mb-1 text-gray-800">Регламенты и гайды по должностям</h3>
+                <p class="text-gray-500 mb-6">Здесь можно добавить документы и инструкции для каждой роли.</p>
+                <div class="space-y-4" id="rolesGuidesAccordion">
+                    {% for role in roles %}
+                    <div class="bg-white rounded-lg border">
+                        <div class="accordion-header cursor-pointer p-4 flex justify-between items-center hover:bg-gray-50">
+                            <h4 class="font-medium text-lg text-primary-dark">Роль: <span class="font-bold">{{ role.name }}</span></h4>
+                            <i class="bi bi-chevron-down accordion-icon transition-transform text-gray-500"></i>
+                        </div>
+                        <div class="accordion-content border-t p-6">
+                            <div id="guides-list-{{ role.name }}" class="space-y-3 mb-6">
+                                {% for guide in role_guides_data[role.name] %}
+                                <div class="flex justify-between items-start bg-gray-50 p-3 rounded-lg shadow-sm border" data-id="{{ guide.id }}">
+                                    <div>
+                                        <p class="font-semibold">{{ guide.title }}</p>
+                                        <p class="text-xs text-gray-600">{{ guide.content }}</p>
+                                        {% if guide.file_path %}<p class="text-xs text-blue-600">Прикреплен файл</p>{% endif %}
+                                    </div>
+                                    <form action="{{ url_for('delete_guide', guide_id=guide.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить регламент?" data-parent-selector="div[data-id='{{ guide.id }}']">
+                                        <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                </div>
+                                {% else %}
+                                <p class="text-sm text-gray-500 no-guides-message">Для этой роли регламентов пока нет.</p>
+                                {% endfor %}
                             </div>
-                            <form action="{{ url_for('delete_guide', guide_id=guide.id) }}" method="POST" onsubmit="return confirm('Удалить регламент?');">
-                                <button class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+
+                            <form action="{{ url_for('add_guide', role=role.name) }}" method="POST" enctype="multipart/form-data" class="border p-4 rounded-lg mt-4 space-y-3" data-action="add-guide" data-role="{{ role.name }}">
+                                <h6 class="font-semibold">Добавить новый регламент</h6>
+                                <input name="title" placeholder="Название регламента" required class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
+                                <textarea name="content" placeholder="Краткое описание (необязательно)" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary"></textarea>
+                                <label class="block text-sm font-medium">Прикрепить файл (необязательно)</label>
+                                <input type="file" name="file" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100">
+                                <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white py-2 rounded-lg shadow transition">Добавить</button>
                             </form>
                         </div>
-                        {% else %}
-                        <p class="text-sm text-gray-500">Для этой роли регламентов пока нет.</p>
-                        {% endfor %}
                     </div>
-
-                    <form action="{{ url_for('add_guide', role=role.name) }}" method="POST" enctype="multipart/form-data" class="border p-4 rounded-lg mt-4 space-y-3">
-                        <h6 class="font-semibold">Добавить новый регламент</h6>
-                        <input name="title" placeholder="Название регламента" required class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
-                        <textarea name="content" placeholder="Краткое описание (необязательно)" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary"></textarea>
-                        <label class="block text-sm font-medium">Прикрепить файл (необязательно)</label>
-                        <input type="file" name="file" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100">
-                        <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white py-2 rounded-lg shadow transition">Добавить</button>
-                    </form>
+                    {% endfor %}
                 </div>
             </div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
+          </div>
       </div>
 
       <div id="onboarding-content" class="content-section">
@@ -487,14 +463,19 @@
               <div class="bg-white rounded-lg border">
                 <div class="accordion-header cursor-pointer p-4 flex justify-between items-center hover:bg-gray-50">
                   <h4 class="font-medium text-lg text-primary-dark">Роль: <span class="font-bold">{{ role.name }}</span></h4>
-                  <i class="bi bi-chevron-down accordion-icon transition-transform text-gray-500"></i>
+                  <div class="flex items-center space-x-2">
+                        <button data-modal-target="copy-settings-{{ role.name|urlencode }}" class="px-3 py-1 bg-gray-200 text-gray-700 text-xs font-semibold rounded-full hover:bg-gray-300 transition flex items-center">
+                            <i class="bi bi-clipboard-plus mr-1.5"></i>Копировать
+                        </button>
+                        <i class="bi bi-chevron-down accordion-icon transition-transform text-gray-500"></i>
+                    </div>
                 </div>
                 <div class="accordion-content border-t">
                   <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div class="space-y-4">
                       <h5 class="font-semibold text-md text-gray-700"><i class="bi bi-book mr-2"></i>Материалы для тренинга</h5>
                       {% set onboarding_info = onboarding_data[role.name].info %}
-                      <form action="{{ url_for('update_onboarding', role=role.name) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                      <form action="{{ url_for('update_onboarding', role=role.name) }}" method="POST" enctype="multipart/form-data" class="space-y-4" data-action="update-onboarding">
                         <div>
                           <label class="block text-sm font-medium">Текст приветствия/инструкции</label>
                           <textarea name="text" rows="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-primary focus:border-primary">{{ onboarding_info.text if onboarding_info }}</textarea>
@@ -511,7 +492,7 @@
                           <label class="block text-sm font-medium">Прикрепить/Заменить файл</label>
                           <input type="file" name="file" class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100" />
                           {% if onboarding_info and onboarding_info.file_path %}
-                            <small class="text-xs text-gray-500">Текущий: {{ onboarding_info.file_path }}</small>
+                            <small class="text-xs text-gray-500 current-file">Текущий: {{ onboarding_info.file_path }}</small>
                           {% endif %}
                         </div>
                         <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition">Сохранить тренинг</button>
@@ -519,7 +500,7 @@
                     </div>
                     <div class="space-y-4 flex flex-col">
                       <h5 class="font-semibold text-md text-gray-700"><i class="bi bi-patch-question mr-2"></i>Вопросы для квиза</h5>
-                      <input id="searchQuiz-{{ role.name }}" type="text" class="w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="Поиск вопросов…">
+                      <input id="searchQuiz-{{ role.name }}" type="text" class="w-full rounded-md border-gray-300 shadow-sm p-2 search-quiz" placeholder="Поиск вопросов…">
                       <div id="quiz-list-{{ role.name }}" class="quiz-list flex-grow overflow-y-auto bg-gray-100 p-3 rounded-lg space-y-3 min-h-[150px]">
                         {% for quiz in onboarding_data[role.name].quizzes %}
                         <div class="quiz-card flex justify-between items-start bg-white p-3 rounded-lg shadow-sm border" data-id="{{ quiz.id }}">
@@ -529,17 +510,19 @@
                           </div>
                           <div class="flex space-x-2">
                             <button data-modal-target="edit-quiz-{{ quiz.id }}" class="p-1 text-gray-400 hover:text-primary"><i class="bi bi-pencil-fill"></i></button>
-                            <form action="{{ url_for('delete_quiz', quiz_id=quiz.id) }}" method="POST" onsubmit="return confirm('Удалить вопрос?');">
-                              <button class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+                            <form action="{{ url_for('delete_quiz', quiz_id=quiz.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить вопрос?" data-parent-selector="div.quiz-card">
+                              <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
                             </form>
                           </div>
                         </div>
                         {% else %}
-                          <p class="text-gray-500 text-center py-8">Вопросов пока нет.</p>
+                          <p class="text-gray-500 text-center py-8 no-quizzes-message">Вопросов пока нет.</p>
                         {% endfor %}
                       </div>
-                      <button id="save-order-{{ role.name }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm shadow transition">Сохранить порядок</button>
-                      <form class="add-quiz-form flex-shrink-0 space-y-4 border p-4 rounded-lg" action="{{ url_for('add_quiz', role=role.name) }}" method="POST">
+                      <form action="{{ url_for('reorder_quiz') }}" method="POST" data-action="reorder-quiz" data-role="{{ role.name }}">
+                        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm shadow transition">Сохранить порядок</button>
+                      </form>
+                      <form class="add-quiz-form flex-shrink-0 space-y-4 border p-4 rounded-lg" action="{{ url_for('add_quiz', role=role.name) }}" method="POST" data-action="add-quiz" data-role="{{ role.name }}">
                         <h6 class="font-semibold">Добавить новый вопрос</h6>
                         <div>
                           <input name="question" type="text" required class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" placeholder="Текст вопроса"/>
@@ -553,17 +536,12 @@
                         <div class="text-answer">
                           <input name="text_answer" type="text" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" placeholder="Правильный ответ"/>
                         </div>
-                        <!-- всегда присутствуют -->
-<input type="hidden" name="options" class="hidden-options" />
-<input type="hidden" name="answer"  class="hidden-answer" />
-
-
-
-<div class="choice-section hidden flex flex-col space-y-2">
-  <div class="options-container space-y-2 max-h-40 overflow-y-auto"></div>
-  <button type="button" class="add-option mt-2 px-3 py-1 bg-indigo-500 text-white rounded-lg text-sm self-start">Добавить вариант</button>
-</div>
-
+                        <input type="hidden" name="options" class="hidden-options" />
+                        <input type="hidden" name="answer"  class="hidden-answer" />
+                        <div class="choice-section hidden flex flex-col space-y-2">
+                          <div class="options-container space-y-2 max-h-40 overflow-y-auto"></div>
+                          <button type="button" class="add-option mt-2 px-3 py-1 bg-indigo-500 text-white rounded-lg text-sm self-start">Добавить вариант</button>
+                        </div>
                         <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white py-2 rounded-lg shadow transition">Сохранить вопрос</button>
                       </form>
                     </div>
@@ -595,21 +573,21 @@
                     </thead>
                     <tbody>
                       {% for event in events %}
-                      <tr class="bg-white border-b hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap">{{ event.event_date|fmt_dt('%Y-%m-%d %H:%M') }}</td>
+                      <tr class="bg-white border-b hover:bg-gray-50" data-id="{{ event.id }}">
+                        <td class="px-6 py-4 whitespace-nowrap date-cell">{{ event.event_date|fmt_dt('%Y-%m-%d %H:%M') }}</td>
                         <td class="px-6 py-4 font-medium text-gray-900">
-                          {{ event.title }}
-                          <p class="text-xs text-gray-500 whitespace-normal">{{ event.description }}</p>
+                          <span class="title-cell">{{ event.title }}</span>
+                          <p class="text-xs text-gray-500 whitespace-normal description-cell">{{ event.description }}</p>
                         </td>
                         <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                            <button data-modal-target="edit-event-{{ event.id }}" class="p-2 text-gray-500 hover:text-primary rounded-full hover:bg-gray-100 transition"><i class="bi bi-pencil-fill"></i></button>
-                           <form action="{{ url_for('delete_event', event_id=event.id) }}" method="POST" onsubmit="return confirm('Удалить ивент?');" class="inline">
-                             <button class="p-2 text-gray-500 hover:text-red-500 rounded-full hover:bg-gray-100 transition"><i class="bi bi-trash"></i></button>
+                           <form action="{{ url_for('delete_event', event_id=event.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить ивент?" data-parent-selector="tr" class="inline">
+                             <button type="submit" class="p-2 text-gray-500 hover:text-red-500 rounded-full hover:bg-gray-100 transition"><i class="bi bi-trash"></i></button>
                            </form>
                         </td>
                       </tr>
                       {% else %}
-                      <tr><td colspan="3" class="py-8 text-center text-gray-500">Ивентов нет.</td></tr>
+                      <tr id="no-events-row"><td colspan="3" class="py-8 text-center text-gray-500">Ивентов нет.</td></tr>
                       {% endfor %}
                     </tbody>
                 </table>
@@ -629,13 +607,13 @@
                 <p class="font-semibold">{{ employee_name or 'Автор неизвестен' }}</p>
                 <p class="text-xs">{{ idea.submission_date|fmt_date('%d.%m.%Y') }}</p>
               </div>
-              <form action="{{ url_for('delete_idea', idea_id=idea.id) }}" method="POST" onsubmit="return confirm('Удалить идею?');">
-                <button class="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition"><i class="bi bi-trash"></i></button>
+              <form action="{{ url_for('delete_idea', idea_id=idea.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить идею?" data-parent-selector="div.bg-white.rounded-xl">
+                <button type="submit" class="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition"><i class="bi bi-trash"></i></button>
               </form>
             </div>
           </div>
           {% else %}
-          <div class="col-span-full text-center text-gray-500 py-16 bg-white rounded-lg shadow-lg">
+          <div class="col-span-full text-center text-gray-500 py-16 bg-white rounded-lg shadow-lg" id="no-ideas-message">
             <i class="bi bi-lightbulb-off text-4xl mb-4"></i>
             <p>Идей пока нет.</p>
           </div>
@@ -643,16 +621,15 @@
         </div>
       </div>
 
-        <div id="broadcast-content" class="content-section">
+      <div id="broadcast-content" class="content-section">
         <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Рассылка сообщений</h1>
         <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg max-w-2xl mx-auto">
-          <form action="{{ url_for('send_broadcast') }}" method="POST" onsubmit="return confirm('Вы уверены, что хотите запустить рассылку?');">
+          <form action="{{ url_for('send_broadcast') }}" method="POST" data-action="send-broadcast" data-confirm="Вы уверены, что хотите запустить рассылку?">
               <div class="space-y-6">
                   <div>
                       <label for="message_text" class="block text-sm font-medium text-gray-700">Текст сообщения</label>
                       <textarea id="message_text" name="message_text" rows="8" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-3 focus:ring-primary focus:border-primary" placeholder="Введите ваше сообщение здесь. Можно использовать базовые HTML-теги: <b>, <i>, <a>." required></textarea>
                   </div>
-
                   <div>
                       <label for="target_role" class="block text-sm font-medium text-gray-700">Получатели</label>
                       <select id="target_role" name="target_role" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-3 focus:ring-primary focus:border-primary">
@@ -662,7 +639,6 @@
                           {% endfor %}
                       </select>
                   </div>
-
                   <div class="flex justify-end">
                     <button type="submit" class="bg-primary hover:bg-primary-hover text-white font-bold py-2 px-6 rounded-lg flex items-center shadow hover:shadow-lg transition">
                       <i class="bi bi-send-fill mr-2"></i> Отправить
@@ -701,8 +677,8 @@
                     <td class="px-6 py-4 text-xs">{{ topic.image_path or 'Нет' }}</td>
                     <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                        <button data-modal-target="edit-topic-{{ topic.id }}" class="p-2 text-gray-500 hover:text-primary rounded-full hover:bg-gray-100 transition"><i class="bi bi-pencil-fill"></i></button>
-                       <form action="{{ url_for('delete_topic', topic_id=topic.id) }}" method="POST" onsubmit="return confirm('Удалить тему?');" class="inline">
-                         <button class="p-2 text-gray-500 hover:text-red-500 rounded-full hover:bg-gray-100 transition"><i class="bi bi-trash"></i></button>
+                       <form action="{{ url_for('delete_topic', topic_id=topic.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить тему?" data-parent-selector="tr" class="inline">
+                         <button type="submit" class="p-2 text-gray-500 hover:text-red-500 rounded-full hover:bg-gray-100 transition"><i class="bi bi-trash"></i></button>
                        </form>
                     </td>
                   </tr>
@@ -725,15 +701,15 @@
               {% for role in roles %}
               <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border">
                 <span>{{ role.name }}</span>
-                <form action="{{ url_for('delete_role', role_id=role.id) }}" method="POST" onsubmit="return confirm('Удалить роль {{ role.name }}?');">
-                  <button class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+                <form action="{{ url_for('delete_role', role_id=role.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить роль {{ role.name }}?" data-parent-selector="li">
+                  <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
                 </form>
               </li>
               {% else %}
-              <li class="text-gray-500">Нет созданных ролей.</li>
+              <li id="no-roles-message" class="text-gray-500">Нет созданных ролей.</li>
               {% endfor %}
             </ul>
-            <form action="{{ url_for('add_role') }}" method="POST" class="flex space-x-2">
+            <form action="{{ url_for('add_role') }}" method="POST" data-action="add-role" class="flex space-x-2">
               <input type="text" name="role_name" required class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" placeholder="Новая роль" />
               <button type="submit" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg shadow transition">Добавить</button>
             </form>
@@ -741,37 +717,29 @@
           <div class="bg-white p-6 rounded-xl shadow-lg">
             <h3 class="text-xl font-semibold mb-4 text-gray-800">Основные настройки (.env)</h3>
             <p class="text-gray-500 mb-4">После сохранения перезапустите бота, чтобы они применились.</p>
-            <form action="{{ url_for('update_config') }}" method="POST" class="space-y-4">
+            <form action="{{ url_for('update_config') }}" method="POST" data-action="update-config" class="space-y-4">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium">Токен бота</label>
                   <input type="password" name="BOT_TOKEN" class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" placeholder="Оставьте пустым, чтобы не менять" />
                   <small class="text-xs text-gray-500">Текущий: {{ config.BOT_TOKEN[:5] }}...{{ config.BOT_TOKEN[-5:] }}</small>
                 </div>
-               <div>
-  <label class="block text-sm font-medium">Общий чат (выберите из доступных групп)</label>
-  <select name="COMMON_CHAT_ID_SELECT"
-          class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
-    <option value="">— Выбрать из групп, где бот админ —</option>
-    {% for g in admin_groups %}
-      <option value="{{ g.chat_id }}"
-        {% if config.COMMON_CHAT_ID and config.COMMON_CHAT_ID|string == g.chat_id|string %}selected{% endif %}>
-        {{ g.name }} ({{ g.chat_id }})
-      </option>
-    {% endfor %}
-  </select>
-  <small class="text-xs text-gray-500">Список формируется автоматически, когда бота добавляют админом в группу.</small>
-</div>
-
-<div>
-  <label class="block text-sm font-medium mt-4">ID общего чата (ввести вручную, если нужно)</label>
-  <input type="text" name="COMMON_CHAT_ID"
-         class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary"
-         placeholder="Например: -1001234567890"
-         value="{{ config.COMMON_CHAT_ID }}" />
-  <small class="text-xs text-gray-400">Если выбрали чат выше, это поле можно оставить без изменений.</small>
-</div>
-
+                <div>
+                  <label class="block text-sm font-medium">Общий чат (выберите из доступных групп)</label>
+                  <select name="COMMON_CHAT_ID_SELECT" class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
+                    <option value="">— Выбрать из групп, где бот админ —</option>
+                    {% for g in admin_groups %}
+                      <option value="{{ g.chat_id }}" {% if config.COMMON_CHAT_ID and config.COMMON_CHAT_ID|string == g.chat_id|string %}selected{% endif %}>
+                        {{ g.name }} ({{ g.chat_id }})
+                      </option>
+                    {% endfor %}
+                  </select>
+                  <small class="text-xs text-gray-500">Список формируется автоматически.</small>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mt-4">ID общего чата (ввести вручную)</label>
+                  <input type="text" name="COMMON_CHAT_ID" class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" placeholder="-1001234567890" value="{{ config.COMMON_CHAT_ID }}" />
+                </div>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -798,6 +766,7 @@
     </div>
   </div>
 
+ <!-- MODALS -->
  {% for event in events %}
 <div id="edit-event-{{ event.id }}" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-50 items-center justify-center z-50">
   <div class="modal-box bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95">
@@ -805,22 +774,19 @@
       <h3 class="text-2xl font-semibold">Редактировать ивент</h3>
       <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
     </div>
-    <form action="{{ url_for('edit_event', event_id=event.id) }}" method="POST" class="space-y-4">
+    <form action="{{ url_for('edit_event', event_id=event.id) }}" method="POST" data-action="edit-event" class="space-y-4">
+      <input type="hidden" name="event_id" value="{{ event.id }}">
       <div>
         <label class="block text-sm font-medium">Название</label>
-        <input type="text" name="title" value="{{ event.title }}" required
-               class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
+        <input type="text" name="title" value="{{ event.title }}" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
       </div>
       <div>
         <label class="block text-sm font-medium">Описание</label>
-        <textarea name="description" rows="3" required
-                  class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">{{ event.description }}</textarea>
+        <textarea name="description" rows="3" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">{{ event.description }}</textarea>
       </div>
       <div>
         <label class="block text-sm font-medium">Дата и время</label>
-        <input type="datetime-local" name="event_date"
-               value="{{ event.event_date|fmt_dt('%Y-%m-%dT%H:%M') }}" required
-               class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
+        <input type="datetime-local" name="event_date" value="{{ event.event_date|fmt_dt('%Y-%m-%dT%H:%M') }}" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
       </div>
       <div class="flex justify-end space-x-3 pt-4">
         <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
@@ -837,80 +803,80 @@
               <h3 class="text-2xl font-semibold">Новый сотрудник</h3>
               <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
           </div>
-          <form action="{{ url_for('add_employee') }}" method="POST" class="space-y-4">
-    <div>
-      <label class="block text-sm font-medium text-gray-700">Email</label>
-      <input type="email" name="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-primary focus:border-primary" placeholder="user@example.com" required />
-    </div>
-    <div>
-      <label class="block text-sm font-medium text-gray-700">Роль</label>
-      <select name="role" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-primary focus:border-primary" required>
-        {% for role in roles %}
-          <option value="{{ role.name }}">{{ role.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="flex justify-end space-x-3 pt-4">
-        <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
-        <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg shadow transition">Добавить</button>
-    </div>
-</form>
+          <form action="{{ url_for('add_employee') }}" method="POST" data-action="add-employee" class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" name="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-primary focus:border-primary" placeholder="user@example.com" required />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Роль</label>
+                <select name="role" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 focus:ring-primary focus:border-primary" required>
+                  {% for role in roles %}
+                    <option value="{{ role.name }}">{{ role.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="flex justify-end space-x-3 pt-4">
+                  <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
+                  <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg shadow transition">Добавить</button>
+              </div>
+          </form>
       </div>
   </div>
 
   {% for emp in employees %}
       <div id="edit-employee-{{ emp.id }}" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-50 items-center justify-center z-50">
-        <div class="modal-box bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95">
-            <div class="flex justify-between items-center mb-6 border-b pb-4">
-                <h3 class="text-2xl font-semibold">Редактировать сотрудника</h3>
-                <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-            </div>
-            <form action="{{ url_for('edit_employee', emp_id=emp.id) }}" method="POST" class="space-y-4">
-                <div>
-                  <label class="block text-sm font-medium">Имя</label>
-                  <input type="text" name="name" value="{{ emp.name }}" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium">Email</label>
-                  <input type="email" name="email" value="{{ emp.email }}" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium">Роль</label>
-                  <select name="role" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
-                    {% for r in roles %}
-                      <option value="{{ r.name }}" {% if r.name==emp.role %}selected{% endif %}>{{ r.name }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium">Дата рождения</label>
-                  <input type="date" name="birthday" value="{{ emp.birthday|fmt_date('%Y-%m-%d') }}"  class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
-                </div>
-                <div class="flex justify-end space-x-3 pt-4">
-                  <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
-                  <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg shadow transition">Сохранить</button>
-                </div>
-            </form>
-        </div>
+          <div class="modal-box bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95">
+              <div class="flex justify-between items-center mb-6 border-b pb-4">
+                  <h3 class="text-2xl font-semibold">Редактировать сотрудника</h3>
+                  <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+              </div>
+              <form action="{{ url_for('edit_employee', emp_id=emp.id) }}" method="POST" class="space-y-4" data-action="edit-employee">
+                  <div>
+                    <label class="block text-sm font-medium">Имя</label>
+                    <input type="text" name="name" value="{{ emp.name }}" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium">Email</label>
+                    <input type="email" name="email" value="{{ emp.email }}" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium">Роль</label>
+                    <select name="role" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
+                      {% for r in roles %}
+                        <option value="{{ r.name }}" {% if r.name==emp.role %}selected{% endif %}>{{ r.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium">Дата рождения</label>
+                    <input type="date" name="birthday" value="{{ emp.birthday|fmt_date('%Y-%m-%d') }}"  class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
+                  </div>
+                  <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
+                    <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg shadow transition">Сохранить</button>
+                  </div>
+              </form>
+          </div>
       </div>
       <div id="actions-employee-{{ emp.id }}" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-50 items-center justify-center z-50">
           <div class="modal-box bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm transform scale-95">
               <h3 class="font-semibold text-lg mb-4">Действия для {{ emp.name }}</h3>
               <div class="space-y-3">
-    <form action="{{ url_for('reset_telegram', emp_id=emp.id) }}" method="POST" onsubmit="return confirm('Сбросить привязку Telegram для {{ emp.name }}?');">
-        <button type="submit" class="w-full text-left p-3 rounded-lg hover:bg-yellow-50 text-yellow-700 transition"><i class="bi bi-unlock-fill mr-3"></i>Сбросить Telegram</button>
-    </form>
-    <form action="{{ url_for('generate_new_code', emp_id=emp.id) }}" method="POST">
-        <button type="submit" class="w-full text-left p-3 rounded-lg hover:bg-blue-50 text-blue-700 transition"><i class="bi bi-key-fill mr-3"></i>Сгенерировать новый код</button>
-    </form>
-    <form action="{{ url_for('reset_progress', emp_id=emp.id) }}" method="POST" onsubmit="return confirm('Полностью сбросить прогресс для {{ emp.name }}? Сотруднику придется заново проходить онбординг и тренинг.');">
-        <button type="submit" class="w-full text-left p-3 rounded-lg hover:bg-orange-50 text-orange-700 transition"><i class="bi bi-arrow-counterclockwise mr-3"></i>Полный сброс прогресса</button>
-    </form>
-    <div class="border-t my-2"></div>
-    <form action="{{ url_for('dismiss_employee', emp_id=emp.id) }}" method="POST" onsubmit="return confirm('Уволить {{ emp.name }}? Это действие необратимо.');">
-        <button type="submit" class="w-full text-left p-3 rounded-lg hover:bg-red-50 text-red-700 transition"><i class="bi bi-trash-fill mr-3"></i>Уволить и архивировать</button>
-    </form>
-</div>
+                  <form action="{{ url_for('reset_telegram', emp_id=emp.id) }}" method="POST" data-action="simple-action" data-confirm="Сбросить привязку Telegram для {{ emp.name }}?">
+                      <button type="submit" class="w-full text-left p-3 rounded-lg hover:bg-yellow-50 text-yellow-700 transition"><i class="bi bi-unlock-fill mr-3"></i>Сбросить Telegram</button>
+                  </form>
+                  <form action="{{ url_for('generate_new_code', emp_id=emp.id) }}" method="POST" data-action="simple-action">
+                      <button type="submit" class="w-full text-left p-3 rounded-lg hover:bg-blue-50 text-blue-700 transition"><i class="bi bi-key-fill mr-3"></i>Сгенерировать новый код</button>
+                  </form>
+                  <form action="{{ url_for('reset_progress', emp_id=emp.id) }}" method="POST" data-action="simple-action" data-confirm="Полностью сбросить прогресс для {{ emp.name }}?">
+                      <button type="submit" class="w-full text-left p-3 rounded-lg hover:bg-orange-50 text-orange-700 transition"><i class="bi bi-arrow-counterclockwise mr-3"></i>Полный сброс прогресса</button>
+                  </form>
+                  <div class="border-t my-2"></div>
+                  <form action="{{ url_for('dismiss_employee', emp_id=emp.id) }}" method="POST" data-action="dismiss-employee" data-confirm="Уволить {{ emp.name }}? Это действие необратимо." data-parent-selector="tr[data-employee-id='{{ emp.id }}']">
+                      <button type="submit" class="w-full text-left p-3 rounded-lg hover:bg-red-50 text-red-700 transition"><i class="bi bi-trash-fill mr-3"></i>Уволить и архивировать</button>
+                  </form>
+              </div>
               <div class="text-right mt-6">
                   <button type="button" data-modal-close class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg">Закрыть</button>
               </div>
@@ -924,7 +890,7 @@
           <h3 class="text-2xl font-semibold">Новый ивент</h3>
           <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
         </div>
-        <form action="{{ url_for('add_event') }}" method="POST" class="space-y-4">
+        <form action="{{ url_for('add_event') }}" method="POST" data-action="add-event" class="space-y-4">
           <div>
             <label class="block text-sm font-medium">Название</label>
             <input type="text" name="title" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
@@ -951,7 +917,7 @@
           <h3 class="text-2xl font-semibold">Новая тема в Базе знаний</h3>
           <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
         </div>
-        <form action="{{ url_for('add_topic') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+        <form action="{{ url_for('add_topic') }}" method="POST" enctype="multipart/form-data" data-action="reload" class="space-y-4">
           <div>
             <label class="block text-sm font-medium">Заголовок</label>
             <input type="text" name="title" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
@@ -979,31 +945,22 @@
       <h3 class="text-2xl font-semibold">Редактировать тему</h3>
       <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
     </div>
-
-    <form action="{{ url_for('edit_topic', topic_id=topic.id) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+    <form action="{{ url_for('edit_topic', topic_id=topic.id) }}" method="POST" data-action="reload" enctype="multipart/form-data" class="space-y-4">
       <div>
         <label class="block text-sm font-medium">Заголовок</label>
-        <input type="text" name="title"
-               value="{{ topic.title }}" required
-               class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
+        <input type="text" name="title" value="{{ topic.title }}" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
       </div>
-
       <div>
         <label class="block text-sm font-medium">Содержание</label>
-        <textarea name="content" rows="5" required
-                  class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">{{ topic.content }}</textarea>
+        <textarea name="content" rows="5" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">{{ topic.content }}</textarea>
       </div>
-
       <div>
         <label class="block text-sm font-medium">Заменить изображение (необязательно)</label>
-        <input type="file" name="image"
-               class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100"
-               accept="image/*" />
+        <input type="file" name="image" class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100" accept="image/*" />
         {% if topic.image_path %}
           <small class="text-xs text-gray-500">Текущее: {{ topic.image_path }}</small>
         {% endif %}
       </div>
-
       <div class="flex justify-end space-x-3 pt-4">
         <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
         <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg shadow transition">Сохранить</button>
@@ -1013,412 +970,746 @@
 </div>
 {% endfor %}
 
+{% for role in roles %}
+  {% for quiz in onboarding_data[role.name].quizzes %}
+    <div id="edit-quiz-{{ quiz.id }}" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-50 items-center justify-center z-50">
+      <div class="modal-box bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95">
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+            <h3 class="text-2xl font-semibold">Редактировать вопрос</h3>
+            <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+        </div>
+        <form action="{{ url_for('edit_quiz', quiz_id=quiz.id) }}" method="POST" data-action="reload" class="space-y-4">
+            <!-- Содержимое формы редактирования квиза. Для AJAX лучше бы тоже возвращать JSON, но пока что оставим reload -->
+             <div>
+              <input name="question" type="text" required class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" value="{{ quiz.question }}" placeholder="Текст вопроса"/>
+            </div>
+            <div>
+              <select name="question_type" class="quiz-type w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
+                <option value="text" {% if quiz.question_type == 'text' %}selected{% endif %}>Свободный ввод</option>
+                <option value="choice" {% if quiz.question_type == 'choice' %}selected{% endif %}>Выбор из вариантов</option>
+              </select>
+            </div>
+            <div class="text-answer {% if quiz.question_type == 'choice' %}hidden{% endif %}">
+              <input name="text_answer" type="text" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" value="{{ quiz.answer if quiz.question_type == 'text' else '' }}" placeholder="Правильный ответ"/>
+            </div>
+            <div class="choice-section {% if quiz.question_type != 'choice' %}hidden{% endif %} flex flex-col space-y-2">
+              <div class="options-container space-y-2 max-h-40 overflow-y-auto">
+                {% if quiz.question_type == 'choice' and quiz.options %}
+                  {% for option in quiz.options.split(';') %}
+                  <div class="flex items-center space-x-2">
+                    <input type="radio" name="correct_radio" class="text-primary focus:ring-primary" {% if option == quiz.answer %}checked{% endif %}>
+                    <input type="text" placeholder="Вариант" value="{{ option }}" class="flex-1 rounded border-gray-300 px-2 py-1 focus:ring-primary focus:border-primary">
+                    <button type="button" class="remove-opt text-red-600 p-1">×</button>
+                  </div>
+                  {% endfor %}
+                {% endif %}
+              </div>
+              <button type="button" class="add-option mt-2 px-3 py-1 bg-indigo-500 text-white rounded-lg text-sm self-start">Добавить вариант</button>
+            </div>
+            <input type="hidden" name="options" class="hidden-options" />
+            <input type="hidden" name="answer"  class="hidden-answer" />
+
+            <div class="flex justify-end space-x-3 pt-4">
+              <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
+              <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg shadow transition">Сохранить</button>
+            </div>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+{% endfor %}
+
+<!-- NEW MODAL FOR COPYING SETTINGS -->
+{% for role in roles %}
+<div id="copy-settings-{{ role.name|urlencode }}" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-50 items-center justify-center z-50">
+  <div class="modal-box bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg transform scale-95">
+    <div class="flex justify-between items-center mb-6 border-b pb-4">
+      <h3 class="text-2xl font-semibold">Копировать настройки роли</h3>
+      <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+    </div>
+    <!-- This form will be handled by AJAX. On success, it will reload the page to show changes. -->
+    <!-- You need to implement the '/settings/copy' endpoint on your Flask backend. -->
+    <form action="/settings/copy" method="POST" data-action="reload" class="space-y-6" data-confirm="Вы уверены? Это перезапишет существующие настройки у выбранных ролей.">
+      <input type="hidden" name="source_role" value="{{ role.name }}">
+      <div>
+        <p class="text-gray-600">Копировать из роли: <strong class="font-semibold text-primary">{{ role.name }}</strong></p>
+      </div>
+
+      <div>
+        <label class="block text-lg font-medium text-gray-800 mb-3">1. Какие настройки скопировать?</label>
+        <div class="space-y-2">
+            <label class="flex items-center p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 cursor-pointer">
+                <input type="checkbox" name="sections_to_copy" value="scenarios" class="h-5 w-5 rounded text-primary focus:ring-primary border-gray-300">
+                <span class="ml-3 text-gray-700">Сценарии онбординга (вопросы и шаги)</span>
+            </label>
+            <label class="flex items-center p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 cursor-pointer">
+                <input type="checkbox" name="sections_to_copy" value="training" class="h-5 w-5 rounded text-primary focus:ring-primary border-gray-300">
+                <span class="ml-3 text-gray-700">Тренинг и Квизы</span>
+            </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-lg font-medium text-gray-800 mb-3">2. В какие роли скопировать?</label>
+        <div class="max-h-48 overflow-y-auto border p-3 rounded-lg bg-gray-50 space-y-2">
+            {% for target_role in roles %}
+                {% if target_role.name != role.name %}
+                    <label class="block flex items-center p-2 rounded-md hover:bg-gray-200 cursor-pointer">
+                        <input type="checkbox" name="target_roles" value="{{ target_role.name }}" class="h-4 w-4 rounded text-primary focus:ring-primary border-gray-300">
+                        <span class="ml-3 text-gray-800">{{ target_role.name }}</span>
+                    </label>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <p class="text-xs text-red-600 mt-2">Внимание: Существующие настройки в выбранных ролях будут полностью заменены.</p>
+      </div>
+
+      <div class="flex justify-end space-x-3 pt-4">
+        <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
+        <button type="submit" class="bg-primary hover:bg-primary-hover text-white font-bold px-6 py-2 rounded-lg shadow transition flex items-center">
+          <i class="bi bi-clipboard-check-fill mr-2"></i>Выполнить копирование
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+
+  <!-- ======================= SCRIPTS ======================= -->
   <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // ======================= ЛОГИКА МОБИЛЬНОЙ НАВИГАЦИИ (САЙДБАР) =======================
-    const sidebar = document.getElementById('sidebar');
-    const hamburgerBtn = document.getElementById('hamburger-btn');
-    const overlay = document.getElementById('sidebar-overlay');
-    const mobileHeaderTitle = document.getElementById('mobile-header-title');
 
-    function closeSidebar() {
-        sidebar.classList.add('-translate-x-full');
-        overlay.classList.add('hidden');
-    }
+    // ======================= ГЛОБАЛЬНЫЕ УТИЛИТЫ =======================
+    const flashContainer = document.getElementById('flash-container');
 
-    function openSidebar() {
-        sidebar.classList.remove('-translate-x-full');
-        overlay.classList.remove('hidden');
-    }
+    window.showFlash = function(message, category = 'info') {
+      const colors = {'info': 'blue', 'success': 'green', 'danger': 'red', 'warning': 'yellow'};
+      const alert = document.createElement('div');
+      alert.className = `alert-message bg-white/80 backdrop-blur-sm border-l-4 border-${colors[category] || 'gray'}-500 text-gray-800 p-4 rounded-lg shadow-xl flex items-start justify-between`;
+      alert.setAttribute('role', 'alert');
+      alert.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      alert.style.opacity = '0';
+      alert.style.transform = 'translateX(20px)';
+      alert.innerHTML = `
+        <div class="pr-3"><p class="font-semibold text-sm">${message}</p></div>
+        <button type="button" class="alert-close ml-2 text-gray-400 hover:text-gray-600" aria-label="Закрыть"><i class="bi bi-x-lg"></i></button>
+      `;
 
-    hamburgerBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if(sidebar.classList.contains('-translate-x-full')) {
-            openSidebar();
-        } else {
-            closeSidebar();
-        }
-    });
-    overlay.addEventListener('click', closeSidebar);
-
-
-    // ======================= ЛОГИКА НАВИГАЦИИ =======================
-    const navLinks = document.querySelectorAll('.sidebar-link');
-    const contentSections = document.querySelectorAll('.content-section');
-
-    function switchContent(targetId) {
-      contentSections.forEach(section => section.classList.remove('active'));
-      navLinks.forEach(link => link.classList.remove('active'));
-
-      const activeSection = document.getElementById(targetId + '-content');
-      const activeLink = document.querySelector(`.sidebar-link[data-target="${targetId}"]`);
-
-      if (activeSection) activeSection.classList.add('active');
-      if (activeLink) {
-        activeLink.classList.add('active');
-        if (mobileHeaderTitle) mobileHeaderTitle.textContent = activeLink.querySelector('span').textContent;
-      }
-
-      localStorage.setItem('activeTab', targetId);
-      // Close sidebar on mobile after navigation
-      if (window.innerWidth < 768) {
-        closeSidebar();
-      }
-    }
-
-    navLinks.forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const targetId = link.dataset.target;
-        switchContent(targetId);
+      flashContainer.prepend(alert);
+      requestAnimationFrame(() => {
+          alert.style.opacity = '1';
+          alert.style.transform = 'translateX(0)';
       });
-    });
 
-    const savedTab = localStorage.getItem('activeTab');
-    switchContent(savedTab || 'dashboard');
+      const timer = setTimeout(() => {
+          alert.style.opacity = '0';
+          setTimeout(() => alert.remove(), 300);
+      }, 5000);
 
-    // ======================= ЛОГИКА ВЛОЖЕННЫХ ВКЛАДОК =======================
-    const subTabsContainer = document.getElementById('customization-sub-tabs');
-    if (subTabsContainer) {
-        const subTabButtons = subTabsContainer.querySelectorAll('.sub-tab-button');
-        const subTabContents = document.querySelectorAll('.sub-tab-content');
+      alert.querySelector('.alert-close')?.addEventListener('click', () => {
+          clearTimeout(timer);
+          alert.remove();
+      }, { once: true });
+    };
 
-        function switchSubTab(targetId) {
-            subTabContents.forEach(c => c.classList.remove('active'));
-            subTabButtons.forEach(b => b.classList.remove('active'));
-
-            const activeContent = document.getElementById(targetId + '-content');
-            const activeButton = subTabsContainer.querySelector(`[data-sub-target="${targetId}"]`);
-
-            if(activeContent) activeContent.classList.add('active');
-            if(activeButton) activeButton.classList.add('active');
-        }
-
-        subTabButtons.forEach(button => {
-            button.addEventListener('click', e => {
-                e.preventDefault();
-                switchSubTab(button.dataset.subTarget);
-            });
-        });
-
-        if (subTabButtons.length > 0) {
-            switchSubTab(subTabButtons[0].dataset.subTarget);
-        }
-    }
-
-    // ======================= ЛОГИКА МОДАЛЬНЫХ ОКОН =======================
-    document.querySelectorAll('[data-modal-target]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.preventDefault();
-        const modal = document.getElementById(btn.dataset.modalTarget);
+    window.closeModal = function(modal) {
         if (modal) {
-          modal.classList.remove('hidden');
-          modal.classList.add('flex');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
-      });
-    });
-    function closeModal(modal) {
-        if(modal) {
-          modal.classList.add('hidden');
-          modal.classList.remove('flex');
-        }
-    }
-    document.querySelectorAll('[data-modal-close]').forEach(elem => {
-      elem.addEventListener('click', e => closeModal(elem.closest('.modal')));
-    });
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', e => {
-            if(e.target === modal) closeModal(modal);
+    };
+
+    // Утилита для плавной вставки элемента
+    function appendAndReveal(container, html) {
+        if (!container) return null;
+        const temp = document.createElement('div');
+        temp.innerHTML = html.trim();
+        const el = temp.firstElementChild;
+        if(!el) return null;
+
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(10px)';
+        el.style.transition = 'all .3s ease-out';
+
+        container.prepend(el);
+
+        requestAnimationFrame(() => {
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
         });
-    });
 
-    // ======================= ЛОГИКА АККОРДЕОНА (РАСКРЫВАЕМЫЕ РОЛИ) =======================
-    document.querySelectorAll('.accordion-header').forEach(header => {
-      header.addEventListener('click', () => {
-        const accordionContent = header.nextElementSibling;
-        const accordionIcon = header.querySelector('.accordion-icon');
-        const isOpen = accordionContent.style.maxHeight && accordionContent.style.maxHeight !== '0px';
-
-        if (isOpen) {
-          // Close the accordion
-          accordionContent.style.maxHeight = null;
-          if (accordionIcon) {
-            accordionIcon.classList.remove('rotate-180');
-          }
-        } else {
-          // Open the accordion
-          accordionContent.style.maxHeight = accordionContent.scrollHeight + 'px';
-          if (accordionIcon) {
-            accordionIcon.classList.add('rotate-180');
-          }
+        const acc = container.closest('.accordion-content');
+        if (acc && acc.style.maxHeight) {
+          acc.style.maxHeight = acc.scrollHeight + 'px';
         }
-      });
-    });
+        return el;
+    }
 
+    // ======================= ИНИЦИАЛИЗАЦИЯ UI =======================
+    (function setupUI() {
+        // --- Навигация ---
+        const navLinks = document.querySelectorAll('.sidebar-link');
+        const contentSections = document.querySelectorAll('.content-section');
+        const mobileHeaderTitle = document.getElementById('mobile-header-title');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
 
-    // ======================= ЛОГИКА SORTABLE.JS =======================
-    document.querySelectorAll('.quiz-list').forEach(list=>{
-      new Sortable(list,{ animation: 150, ghostClass:'sortable-ghost', dragClass:'sortable-drag' });
-    });
+        function closeSidebar() {
+            if(sidebar) sidebar.classList.add('-translate-x-full');
+            if(overlay) overlay.classList.add('hidden');
+        }
 
-    // ======================= ЛОГИКА ПОИСКА =======================
-    // ======================= ЛОГИКА ПОИСКА =======================
-const searches=[
-  ['searchEmployees','employeesTable'],
-  ['searchArchivedEmployees','archivedEmployeesTable'],
-  ['searchAttendance','attendanceTable'], // <-- 👇 ДОБАВЛЕНО
-  ['searchEvents','eventsTable'],
-  ['searchIdeas','ideasList'],
-  ['searchKnowledge','knowledgeTable'],
-  ['searchRoles','rolesList']
-];
-    searches.forEach(([inpId,contId])=>{
-      const inp=document.getElementById(inpId), cont=document.getElementById(contId);
-      if(inp&&cont){
-        inp.addEventListener('input',()=>{
-          const f=inp.value.toLowerCase();
-          const items=cont.tagName==='TABLE'?cont.querySelectorAll('tbody tr'):cont.children;
-          Array.from(items).forEach(el=>{
-            el.style.display=el.textContent.toLowerCase().includes(f)?'':'none';
+        function switchContent(targetId) {
+            contentSections.forEach(s => s.classList.remove('active'));
+            navLinks.forEach(l => l.classList.remove('active'));
+            const activeSection = document.getElementById(targetId + '-content');
+            const activeLink = document.querySelector(`.sidebar-link[data-target="${targetId}"]`);
+            if (activeSection) activeSection.classList.add('active');
+            if (activeLink) {
+                activeLink.classList.add('active');
+                if (mobileHeaderTitle) mobileHeaderTitle.textContent = activeLink.querySelector('span').textContent;
+            }
+            localStorage.setItem('activeTab', targetId);
+            if (window.innerWidth < 768) closeSidebar();
+        }
+
+        navLinks.forEach(link => link.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchContent(link.dataset.target);
+        }));
+
+        switchContent(localStorage.getItem('activeTab') || 'dashboard');
+
+        document.getElementById('hamburger-btn')?.addEventListener('click', e => {
+            e.stopPropagation();
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        });
+        overlay?.addEventListener('click', closeSidebar);
+
+        // --- Вложенные вкладки ---
+        document.querySelectorAll('[id$="-sub-tabs"]').forEach(container => {
+            const buttons = container.querySelectorAll('.sub-tab-button');
+            const parent = container.closest('.content-section');
+            const contents = parent.querySelectorAll('.sub-tab-content');
+
+            function switchSubTab(targetId) {
+                contents.forEach(c => c.classList.remove('active'));
+                buttons.forEach(b => b.classList.remove('active'));
+                const content = parent.querySelector(`#${targetId}-content`);
+                const button = container.querySelector(`[data-sub-target="${targetId}"]`);
+                if(content) content.classList.add('active');
+                if(button) button.classList.add('active');
+            }
+            buttons.forEach(b => b.addEventListener('click', e => {
+                e.preventDefault();
+                switchSubTab(b.dataset.subTarget);
+            }));
+            if (buttons.length > 0) switchSubTab(buttons[0].dataset.subTarget);
+        });
+
+        // --- Модальные окна и Аккордеоны (делегирование) ---
+        document.body.addEventListener('click', function(e) {
+            const openBtn = e.target.closest('[data-modal-target]');
+            if (openBtn) {
+                e.preventDefault();
+                const modal = document.getElementById(openBtn.dataset.modalTarget);
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                }
+                return;
+            }
+
+            const closeBtn = e.target.closest('[data-modal-close]');
+            if (closeBtn) {
+                window.closeModal(closeBtn.closest('.modal'));
+                return;
+            }
+
+            if (e.target.classList.contains('modal')) {
+                 window.closeModal(e.target);
+                 return;
+            }
+
+            const accordionHeader = e.target.closest('.accordion-header');
+            if (accordionHeader) {
+                const content = accordionHeader.nextElementSibling;
+                const icon = accordionHeader.querySelector('.accordion-icon');
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                content.style.maxHeight = isOpen ? null : content.scrollHeight + 'px';
+                if (icon) icon.classList.toggle('rotate-180', !isOpen);
+            }
+        });
+
+        // --- Sortable.js ---
+        document.querySelectorAll('.quiz-list').forEach(list => {
+          new Sortable(list, { animation: 150, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag' });
+        });
+
+        // --- Поиск (Фильтрация) ---
+        [
+          ['searchEmployees', '#employeesTable tbody tr'],
+          ['searchArchivedEmployees', '#archivedEmployeesTable tbody tr'],
+          ['searchAttendance', '#attendanceTable tbody tr'],
+          ['searchEvents', '#eventsTable tbody tr'],
+          ['searchIdeas', '#ideasList > div:not(#no-ideas-message)'],
+          ['searchKnowledge', '#knowledgeTable tbody tr'],
+          ['searchRoles', '#rolesList li:not(#no-roles-message)'],
+        ].forEach(([inputId, selector]) => {
+          const input = document.getElementById(inputId);
+          if (!input) return;
+          input.addEventListener('input', () => {
+            const filter = input.value.toLowerCase();
+            document.querySelectorAll(selector).forEach(el => {
+                el.style.display = el.textContent.toLowerCase().includes(filter) ? '' : 'none';
+            });
           });
         });
-      }
-    });
 
-    // ======================= ЛОГИКА FETCH (Сохранение порядка) =======================
-    document.querySelectorAll('.save-question-order-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const role = btn.dataset.role;
-            const listEl = document.getElementById(`onboarding-questions-list-${role}`);
-            const ids = Array.from(listEl.children).map(div => div.dataset.id);
-            fetch('{{ url_for("reorder_onboarding_question") }}', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ordered_ids: ids})
-            }).then(r => r.json()).then(data => {
-                if(data.success) alert(`Порядок вопросов для роли '${role}' сохранен!`);
+        document.querySelectorAll('.search-quiz').forEach(input => {
+          input.addEventListener('input', () => {
+            const filter = input.value.toLowerCase();
+            const list = input.nextElementSibling;
+            if(list && list.classList.contains('quiz-list')) {
+                list.querySelectorAll('.quiz-card').forEach(card => {
+                  card.style.display = card.textContent.toLowerCase().includes(filter) ? '' : 'none';
+                });
+            }
+          });
+        });
+
+        // --- Логика для форм квизов (свободный ввод/выбор) ---
+        document.querySelectorAll('.add-quiz-form, form[action*="/quiz/edit/"]').forEach(form => {
+            const qtype = form.querySelector('.quiz-type');
+            const textBlock = form.querySelector('.text-answer');
+            const textInput = textBlock?.querySelector('input');
+            const choiceSec = form.querySelector('.choice-section');
+            const optsCont = choiceSec?.querySelector('.options-container');
+            const addBtn = choiceSec?.querySelector('.add-option');
+            const hidOpts = form.querySelector('.hidden-options');
+            const hidAns = form.querySelector('.hidden-answer');
+
+            if (!qtype) return;
+
+            function toggleSections() {
+                const isChoice = qtype.value === 'choice';
+                if(choiceSec) choiceSec.classList.toggle('hidden', !isChoice);
+                if(textBlock) textBlock.classList.toggle('hidden', isChoice);
+            }
+
+            function addOption(value = '', isChecked = false) {
+                if(!optsCont) return;
+                const wrap = document.createElement('div');
+                wrap.className = 'flex items-center space-x-2';
+                wrap.innerHTML = `
+                  <input type="radio" name="correct_radio" class="text-primary focus:ring-primary" ${isChecked ? 'checked' : ''}>
+                  <input type="text" placeholder="Вариант" value="${value}" class="flex-1 rounded border-gray-300 px-2 py-1 focus:ring-primary focus:border-primary">
+                  <button type="button" class="remove-opt text-red-600 p-1">×</button>`;
+                wrap.querySelector('.remove-opt').addEventListener('click', () => wrap.remove());
+                optsCont.append(wrap);
+            }
+
+            if(optsCont && optsCont.children.length === 0) { addOption(); addOption(); }
+            addBtn?.addEventListener('click', () => addOption());
+            qtype.addEventListener('change', toggleSections);
+
+            form.addEventListener('submit', e => {
+                if (qtype.value !== 'choice') {
+                  if (textInput && !textInput.value.trim()) { e.preventDefault(); window.showFlash('Введите правильный ответ', 'danger'); }
+                  return;
+                }
+                const texts = Array.from(optsCont.querySelectorAll('input[type="text"]')).map(i => i.value.trim()).filter(Boolean);
+                const radios = Array.from(optsCont.querySelectorAll('input[type="radio"]'));
+                const chosenIdx = radios.findIndex(r => r.checked);
+
+                if (texts.length < 1) { e.preventDefault(); window.showFlash('Добавьте хотя бы 1 вариант ответа', 'danger'); return; }
+                if (chosenIdx === -1) { e.preventDefault(); window.showFlash('Выберите правильный вариант', 'danger'); return; }
+
+                if(hidOpts) hidOpts.value = texts.join(';');
+                if(hidAns) hidAns.value = texts[chosenIdx];
             });
+            toggleSections();
         });
+
+    })();
+
+    // ======================= AJAX FORM HANDLER =======================
+    document.body.addEventListener('submit', async function(e) {
+        const form = e.target;
+        if (!form.matches('form[data-action]')) return;
+
+        e.preventDefault();
+
+        const confirmText = form.dataset.confirm;
+        if (confirmText && !confirm(confirmText)) return;
+
+        const submitButton = e.submitter || form.querySelector('button[type="submit"], [type="submit"]');
+        let originalBtnHTML;
+
+        if (submitButton) {
+            submitButton.disabled = true;
+            originalBtnHTML = submitButton.innerHTML;
+            submitButton.innerHTML = `<span class="loader"></span> Выполняется...`;
+        }
+
+        try {
+            // Специальная обработка для JSON-запросов (сортировка)
+            if (form.dataset.action.startsWith('reorder')) {
+                const role = form.dataset.role;
+                const listId = {
+                  'reorder-quiz': `quiz-list-${role}`,
+                  'reorder-onboarding-question': `onboarding-questions-list-${role}`,
+                  'reorder-onboarding-step': `onboarding-steps-list-${role}`
+                }[form.dataset.action];
+
+                const listEl = document.getElementById(listId);
+                const ids = Array.from(listEl.children).map(div => div.dataset.id);
+
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ordered_ids: ids})
+                });
+                const data = await response.json();
+                 if (response.ok) {
+                    window.showFlash('Порядок сохранен!', 'success');
+                } else {
+                    window.showFlash(data.message || 'Ошибка сохранения порядка', 'danger');
+                }
+
+            } else { // Стандартная обработка FormData
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: form.method.toUpperCase(),
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = response.status !== 204 ? await response.json() : {};
+
+                if (data.message) {
+                    window.showFlash(data.message, data.category);
+                }
+
+                if (response.ok) {
+                    if (data.action === 'reload' || form.dataset.action === 'reload') {
+                        const modal = form.closest('.modal');
+                        if (modal) {
+                            window.closeModal(modal);
+                            setTimeout(() => window.location.reload(), 300);
+                        } else {
+                           window.location.reload();
+                        }
+                    } else {
+                        handleActionSuccess(form.dataset.action, data, form);
+                    }
+                } else if (!data.message) {
+                    window.showFlash('Ошибка выполнения операции.', 'danger');
+                }
+            }
+        } catch (error) {
+            console.error('Fetch error:', error);
+            window.showFlash('Произошла сетевая ошибка. Попробуйте снова.', 'danger');
+        } finally {
+            if (submitButton) {
+                if (originalBtnHTML != null) submitButton.innerHTML = originalBtnHTML;
+                submitButton.disabled = false;
+            }
+        }
     });
 
-    document.querySelectorAll('.save-step-order-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const role = btn.dataset.role;
-            const listEl = document.getElementById(`onboarding-steps-list-${role}`);
-            const ids = Array.from(listEl.children).map(div => div.dataset.id);
-            fetch('{{ url_for("reorder_onboarding_step") }}', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ordered_ids: ids})
-            }).then(r => r.json()).then(data => {
-                if(data.success) alert(`Порядок шагов для роли '${role}' сохранен!`);
-            });
-        });
-    });
+    function handleActionSuccess(action, data, form) {
+        const modal = form.closest('.modal');
 
-    document.querySelectorAll('[id^="save-order-"]').forEach(btn => {
-        const role = btn.id.replace('save-order-','');
-        btn.addEventListener('click', () => {
-            const ids = Array.from(document.getElementById(`quiz-list-${role}`).children).map(div => div.dataset.id);
-            fetch('{{ url_for("reorder_quiz") }}', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({role: role, ordered_ids: ids})
-            }).then(r => r.json()).then(() => alert(`Порядок квиза для роли '${role}' сохранен!`));
-        });
-    });
+        const animateRemove = (el) => {
+            if (!el) return;
+            el.style.transition = 'opacity 0.3s ease, transform 0.3s ease, max-height 0.3s ease';
+            el.style.opacity = '0';
+            el.style.transform = 'scale(0.95)';
+            el.style.maxHeight = '0px';
+            el.style.paddingTop = '0px';
+            el.style.paddingBottom = '0px';
+            el.style.marginTop = '0px';
+            el.style.marginBottom = '0px';
+            setTimeout(() => el.remove(), 300);
+        };
 
-   document.querySelectorAll('.add-quiz-form').forEach(form => {
-  const qtype     = form.querySelector('.quiz-type');
-  const textBlock = form.querySelector('.text-answer');
-  const textInput = form.querySelector('.text-answer input[name="text_answer"]');
-  const choiceSec = form.querySelector('.choice-section');
-  const optsCont  = form.querySelector('.options-container');
-  const addBtn    = form.querySelector('.add-option');
-  const hidOpts   = form.querySelector('.hidden-options'); // name="options"
-  const hidAns    = form.querySelector('.hidden-answer');  // name="answer"
+        switch (action) {
+            case 'delete-item': {
+                animateRemove(form.closest(form.dataset.parentSelector));
+                break;
+            }
+            case 'dismiss-employee': {
+                animateRemove(document.querySelector(form.dataset.parentSelector));
+                if(modal) window.closeModal(modal);
+                // Optionally add to archive list dynamically
+                break;
+            }
+            case 'add-role': {
+                const newRole = data.role;
+                if (!newRole) return;
+                document.getElementById('no-roles-message')?.remove();
 
-  // утилиты
-  const setVisible = (el, on) => el.classList.toggle('hidden', !on);
-  const setDisabledAll = (container, disabled) => {
-    container.querySelectorAll('input, select, textarea, button').forEach(i => {
-      // не отключаем саму кнопку "Добавить вариант"
-      if (i === addBtn) return;
-      i.disabled = disabled;
-      if (disabled) i.removeAttribute('required');
-    });
-  };
+                const list = document.getElementById('rolesList');
+                if(list) {
+                    const liHTML = `
+                    <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border">
+                      <span>${newRole.name}</span>
+                      <form action="/role/delete/${newRole.id}" method="POST" data-action="delete-item" data-confirm="Удалить роль ${newRole.name}?" data-parent-selector="li">
+                        <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+                      </form>
+                    </li>`;
+                    list.insertAdjacentHTML('beforeend', liHTML);
+                }
 
-  function toggleSections() {
-    const isChoice = qtype.value === 'choice';
+                // For a true SPA experience, we would create new DOM nodes for accordions.
+                // As a compromise, we just show a success message. Reload will show the new role everywhere.
+                window.showFlash('Роль добавлена. Новые разделы для нее появятся после перезагрузки страницы.', 'info');
+                form.reset();
+                break;
+            }
+            case 'add-employee': {
+                 const newEmp = data.employee;
+                 if (!newEmp) break;
+                 document.getElementById('no-employees-row')?.remove();
+                 const tableBody = document.querySelector('#employeesTable tbody');
+                 const newRowHTML = `
+                   <tr class="bg-white border-b hover:bg-gray-50" data-employee-id="${newEmp.id}">
+                     <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                       <div class="font-semibold name-cell">${newEmp.name}</div>
+                       <div class="text-xs text-gray-500 email-cell">${newEmp.email}</div>
+                     </td>
+                     <td class="px-6 py-4 role-cell">
+                       <span class="px-2 py-1 bg-indigo-100 text-primary font-medium rounded-full text-xs">${newEmp.role}</span>
+                     </td>
+                     <td class="px-6 py-4 status-cell">
+                       <div class="flex flex-col space-y-1">
+                         <span class="flex items-center text-xs font-medium text-gray-500"><i class="bi bi-x-circle-fill mr-1.5"></i> Telegram</span>
+                         <span class="flex items-center text-xs font-medium text-gray-500"><i class="bi bi-x-circle-fill mr-1.5"></i> Тренинг</span>
+                       </div>
+                     </td>
+                     <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                       <small class="text-gray-400">Действия доступны после перезагрузки</small>
+                     </td>
+                   </tr>
+                 `;
+                 appendAndReveal(tableBody, newRowHTML);
+                 form.reset();
+                 if(modal) window.closeModal(modal);
+                 break;
+            }
+            case 'edit-employee': {
+                 const emp = data.employee;
+                 const row = document.querySelector(`tr[data-employee-id="${emp.id}"]`);
+                 if(row) {
+                     row.querySelector('.name-cell').textContent = emp.name;
+                     row.querySelector('.email-cell').textContent = emp.email;
+                     row.querySelector('.role-cell span').textContent = emp.role;
+                 }
+                 if(modal) window.closeModal(modal);
+                 break;
+            }
+            case 'add-quiz': {
+                const role = form.dataset.role;
+                const list = document.getElementById(`quiz-list-${role}`);
+                if (!list) break;
 
-    setVisible(choiceSec, isChoice);
-    setVisible(textBlock, !isChoice);
+                list.querySelector('.no-quizzes-message')?.remove();
 
-    // включаем актуальные поля, отключаем скрытые
-    if (isChoice) {
-      setDisabledAll(choiceSec, false);
-      setDisabledAll(textBlock, true);
-      textInput.removeAttribute('required');
-    } else {
-      setDisabledAll(choiceSec, true);
-      setDisabledAll(textBlock, false);
-      textInput.setAttribute('required', 'required');
+                const item = data.item;
+                const newQuizHTML = `
+                <div class="quiz-card flex justify-between items-start bg-white p-3 rounded-lg shadow-sm border" data-id="${item.id}">
+                  <div>
+                    <p class="font-semibold">${item.question}</p>
+                    <p class="text-green-700 text-sm">Ответ: ${item.answer}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <small class="text-gray-400 text-xs p-1">Ред. после F5</small>
+                    <form action="${item.delete_url}" method="POST" data-action="delete-item" data-confirm="Удалить вопрос?" data-parent-selector="div.quiz-card">
+                      <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+                    </form>
+                  </div>
+                </div>`;
+                appendAndReveal(list, newQuizHTML);
+                form.reset();
+                // Сброс полей для квиза с выбором
+                const choiceSection = form.querySelector('.choice-section');
+                if(choiceSection) {
+                    choiceSection.querySelector('.options-container').innerHTML = '';
+                    const qtype = form.querySelector('.quiz-type');
+                    if (qtype) {
+                        qtype.value = 'text';
+                        qtype.dispatchEvent(new Event('change'));
+                    }
+                }
+
+                if (modal) window.closeModal(modal);
+                break;
+            }
+            case 'add-onboarding-question': {
+                const role = form.dataset.role;
+                const list = document.getElementById(`onboarding-questions-list-${role}`);
+                if (!list) break;
+
+                list.querySelector('p')?.remove(); // Удаляем "пустое" сообщение если оно есть
+
+                const item = data.item;
+                const requiredText = item.is_required ? 'Обязательный' : 'Необязательный';
+                const newQuestionHTML = `
+                <div class="quiz-card flex justify-between items-start bg-white p-3 rounded-lg shadow-sm border" data-id="${item.id}">
+                    <div>
+                        <p class="font-semibold">${item.question_text}</p>
+                        <p class="text-xs text-blue-600">Ключ: ${item.data_key} | ${requiredText}</p>
+                    </div>
+                    <form action="${item.delete_url}" method="POST" data-action="delete-item" data-confirm="Удалить вопрос?" data-parent-selector="div.quiz-card">
+                      <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+                    </form>
+                </div>`;
+                appendAndReveal(list, newQuestionHTML);
+                form.reset();
+                if (modal) window.closeModal(modal);
+                break;
+            }
+            case 'add-onboarding-step': {
+                const role = form.dataset.role;
+                const list = document.getElementById(`onboarding-steps-list-${role}`);
+                if (!list) break;
+
+                list.querySelector('p')?.remove();
+
+                const item = data.item;
+                const fileInfo = item.file_path ? `<p class="text-xs text-green-600">Файл: ${item.file_type}</p>` : '';
+                const newStepHTML = `
+                <div class="quiz-card flex justify-between items-start bg-white p-3 rounded-lg shadow-sm border" data-id="${item.id}">
+                   <div>
+                       <p class="font-medium">${item.message_text || "Только файл"}</p>
+                       ${fileInfo}
+                   </div>
+                    <form action="${item.delete_url}" method="POST" data-action="delete-item" data-confirm="Удалить шаг?" data-parent-selector="div.quiz-card">
+                      <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+                    </form>
+                </div>`;
+                appendAndReveal(list, newStepHTML);
+                form.reset();
+                if (modal) window.closeModal(modal);
+                break;
+            }
+            // Simple actions that just show a message and close the modal
+            case 'update-text':
+            case 'simple-action':
+            case 'send-broadcast':
+            case 'update-config':
+            case 'update-onboarding': {
+                 if (modal) window.closeModal(modal);
+                 break;
+            }
+            default: {
+                if (modal) window.closeModal(modal);
+            }
+        }
     }
-
-    // фиксим высоту аккордеона
-    const acc = form.closest('.accordion-content');
-    if (acc && acc.style.maxHeight) acc.style.maxHeight = acc.scrollHeight + 'px';
-  }
-
-  qtype.addEventListener('change', toggleSections);
-
-  // генерация вариантов (БЕЗ required!)
-  function addOption(value='') {
-    const wrap = document.createElement('div');
-    wrap.className = 'flex items-center space-x-2';
-    wrap.innerHTML = `
-      <input type="radio" name="correct_radio" class="text-primary focus:ring-primary">
-      <input type="text" placeholder="Вариант" value="${value}"
-             class="flex-1 rounded border-gray-300 px-2 py-1 focus:ring-primary focus:border-primary">
-      <button type="button" class="remove-opt text-red-600 p-1">×</button>`;
-    wrap.querySelector('.remove-opt').addEventListener('click', () => wrap.remove());
-    optsCont.append(wrap);
-  }
-
-  if (optsCont && optsCont.children.length === 0) { addOption(); addOption(); }
-  addBtn?.addEventListener('click', () => addOption());
-
-  // первичная инициализация
-  toggleSections();
-
-  form.addEventListener('submit', e => {
-    const isChoice = qtype.value === 'choice';
-    if (isChoice) {
-      const texts  = Array.from(optsCont.querySelectorAll('input[type="text"]'))
-                     .map(i => i.value.trim()).filter(Boolean);
-      const radios = Array.from(form.querySelectorAll('input[name="correct_radio"]'));
-      const chosenIdx = radios.findIndex(r => r.checked);
-
-      if (texts.length < 2) { e.preventDefault(); alert('Добавьте минимум 2 варианта'); return; }
-      if (chosenIdx === -1) { e.preventDefault(); alert('Выберите правильный вариант'); return; }
-
-      hidOpts.value = texts.join(';');
-      hidAns.value  = texts[chosenIdx];
-    } else {
-      const val = (textInput?.value || '').trim();
-      if (!val) { e.preventDefault(); alert('Введите правильный ответ'); return; }
-      hidOpts.value = '';
-      hidAns.value  = val;
-    }
-  });
-});
-
-
   });
   </script>
 
-<!-- === BOT CHATS: floating button + modal (ВНЕ script) === -->
-<style>
-  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px}
-  .modal-card{max-width:900px;width:100%;background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,.08);box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}
-  .modal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(0,0,0,.08)}
-  .modal-body{padding:12px 16px;max-height:70vh;overflow:auto}
-  .modal-actions{display:flex;gap:8px;align-items:center}
-  .floating-btn{position:fixed;right:16px;bottom:16px;z-index:9998;border-radius:12px;border:1px solid rgba(0,0,0,.1);background:#ffffff;padding:10px 14px;font-weight:600;box-shadow:0 6px 16px rgba(0,0,0,.15)}
-  .tbl{width:100%;border-collapse:collapse}
-  .tbl th,.tbl td{padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.06);text-align:left;font-size:14px}
-  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px}
-  .badge-green{background:#ecfdf5;color:#065f46}
-  .badge-gray{background:#f3f4f6;color:#374151}
-</style>
+  <!-- === BOT CHATS: floating button + modal === -->
+  <style>
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px}
+    .modal-card{max-width:900px;width:100%;background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,.08);box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}
+    .modal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(0,0,0,.08)}
+    .modal-body{padding:12px 16px;max-height:70vh;overflow:auto}
+    .modal-actions{display:flex;gap:8px;align-items:center}
+    .floating-btn{position:fixed;right:16px;bottom:16px;z-index:9998;border-radius:12px;border:1px solid rgba(0,0,0,.1);background:#ffffff;padding:10px 14px;font-weight:600;box-shadow:0 6px 16px rgba(0,0,0,.15); cursor:pointer;}
+    .tbl{width:100%;border-collapse:collapse}
+    .tbl th,.tbl td{padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.06);text-align:left;font-size:14px}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px}
+    .badge-green{background:#ecfdf5;color:#065f46}
+    .badge-gray{background:#f3f4f6;color:#374151}
+  </style>
 
-<button id="bot-chats-open" class="floating-btn">Чаты бота</button>
+  <button id="bot-chats-open" class="floating-btn">Чаты бота</button>
 
-<div id="bot-chats-modal" class="modal-overlay">
-  <div class="modal-card">
-    <div class="modal-header">
-      <div style="font-weight:700">Чаты бота</div>
-      <div class="modal-actions">
-        <button id="bot-chats-refresh" class="floating-btn" style="position:static;box-shadow:none;">Обновить</button>
-        <button id="bot-chats-close" style="border:none;background:transparent;font-size:20px;line-height:1">✕</button>
+  <div id="bot-chats-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="font-weight:700">Чаты бота</div>
+        <div class="modal-actions">
+          <button id="bot-chats-refresh" class="floating-btn" style="position:static;box-shadow:none;">Обновить</button>
+          <button id="bot-chats-close" style="border:none;background:transparent;font-size:20px;line-height:1; cursor: pointer;">✕</button>
+        </div>
       </div>
-    </div>
-    <div class="modal-body">
-      <div id="bot-chats-status" style="font-size:14px;color:#6b7280;margin-bottom:8px">Загрузка…</div>
-      <div class="table-wrap" style="overflow:auto">
-        <table class="tbl">
-          <thead>
-            <tr>
-              <th>Название</th>
-              <th>chat_id</th>
-              <th>Тип</th>
-              <th>Админ?</th>
-              <th>Username</th>
-              <th>Обновлён</th>
-            </tr>
-          </thead>
-          <tbody id="bot-chats-tbody"></tbody>
-        </table>
+      <div class="modal-body">
+        <div id="bot-chats-status" style="font-size:14px;color:#6b7280;margin-bottom:8px">Загрузка…</div>
+        <div class="table-wrap" style="overflow:auto">
+          <table class="tbl">
+            <thead>
+              <tr><th>Название</th><th>chat_id</th><th>Тип</th><th>Админ?</th><th>Username</th><th>Обновлён</th></tr>
+            </thead>
+            <tbody id="bot-chats-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<script>
-(function(){
-  const $ = (s)=>document.querySelector(s);
-  const modal = $("#bot-chats-modal");
-  const openBtn = $("#bot-chats-open");
-  const closeBtn = $("#bot-chats-close");
-  const refreshBtn = $("#bot-chats-refresh");
-  const tbody = $("#bot-chats-tbody");
-  const status = $("#bot-chats-status");
+  <script>
+  (function(){
+    const modal = document.getElementById("bot-chats-modal");
+    const openBtn = document.getElementById("bot-chats-open");
+    const closeBtn = document.getElementById("bot-chats-close");
+    const refreshBtn = document.getElementById("bot-chats-refresh");
+    const tbody = document.getElementById("bot-chats-tbody");
+    const status = document.getElementById("bot-chats-status");
 
-  function open(){ modal.style.display='flex'; refresh(); }
-  function close(){ modal.style.display='none'; }
+    function open(){ modal.style.display='flex'; refresh(); }
+    function close(){ modal.style.display='none'; }
 
-  async function refresh(){
-    status.textContent = "Загрузка…";
-    tbody.innerHTML = "";
+    async function refresh(){
+      status.textContent = "Загрузка…";
+      tbody.innerHTML = "";
+      refreshBtn.disabled = true;
 
-    try{
-      await fetch("/api/bot/chats/recheck", { method:"POST", credentials:"same-origin" }).catch(()=>{});
-      const r = await fetch("/api/bot/chats", { credentials:"same-origin" });
-      const j = await r.json();
-      const items = Array.isArray(j?.data) ? j.data : [];
+      try{
+        await fetch("/api/bot/chats/recheck", { method:"POST" }).catch(()=>{});
+        const r = await fetch("/api/bot/chats");
+        if(!r.ok) throw new Error("Failed to fetch chats");
+        const j = await r.json();
+        const items = Array.isArray(j?.data) ? j.data : [];
 
-      if(items.length === 0){
-        status.textContent = "Пока нет известных боту чатов. Добавьте бота в нужную группу и совершите там действие.";
-        return;
+        if(items.length === 0){
+          status.textContent = "Пока нет известных боту чатов. Добавьте бота в нужную группу.";
+          return;
+        }
+        status.textContent = "";
+
+        const fmt = (iso) => { try{ return new Date(iso).toLocaleString(); }catch(_){ return "—"; } };
+        items.forEach(c => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${c.title || "—"}</td>
+            <td style="font-family:ui-monospace,monospace">${c.chat_id}</td>
+            <td>${c.type || "—"}</td>
+            <td>${c.is_admin ? '<span class="badge badge-green">Да</span>' : '<span class="badge badge-gray">Нет</span>'}</td>
+            <td>${c.username ? '@'+c.username : '—'}</td>
+            <td style="color:#6b7280">${c.updated_at ? fmt(c.updated_at) : "—"}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }catch(e){
+        console.error(e);
+        status.textContent = "Ошибка загрузки.";
+      } finally {
+        refreshBtn.disabled = false;
       }
-      status.textContent = "";
-
-      const fmt = (iso)=>{ try{ return new Date(iso).toLocaleString(); }catch(_){ return "—"; } };
-      for(const c of items){
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${c.title || "—"}</td>
-          <td style="font-family:ui-monospace, SFMono-Regular, Menlo, monospace">${c.chat_id}</td>
-          <td>${c.type || "—"}</td>
-          <td>${c.is_admin ? '<span class="badge badge-green">Да</span>' : '<span class="badge badge-gray">Нет</span>'}</td>
-          <td>${c.username ? '@'+c.username : '—'}</td>
-          <td style="color:#6b7280">${c.updated_at ? fmt(c.updated_at) : "—"}</td>
-        `;
-        tbody.appendChild(tr);
-      }
-    }catch(e){
-      console.error(e);
-      status.textContent = "Ошибка загрузки.";
     }
-  }
 
-  openBtn.addEventListener("click", open);
-  closeBtn.addEventListener("click", close);
-  refreshBtn.addEventListener("click", refresh);
-  modal.addEventListener("click", (e)=>{ if(e.target===modal) close(); });
-})();
-</script>
+    openBtn.addEventListener("click", open);
+    closeBtn.addEventListener("click", close);
+    refreshBtn.addEventListener("click", refresh);
+    modal.addEventListener("click", (e)=>{ if(e.target===modal) close(); });
+  })();
+  </script>
 
 </body>
 </html>
+
