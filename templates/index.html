@@ -724,24 +724,24 @@
                   <input type="password" name="BOT_TOKEN" class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" placeholder="Оставьте пустым, чтобы не менять" />
                   <small class="text-xs text-gray-500">Текущий: {{ config.BOT_TOKEN[:5] }}...{{ config.BOT_TOKEN[-5:] }}</small>
                 </div>
-                <div>
-                  <label class="block text-sm font-medium">Общий чат (выберите из доступных групп)</label>
-                  <select name="COMMON_CHAT_ID_SELECT" class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
-                    <option value="">— Выбрать из групп, где бот админ —</option>
-                    {% for g in admin_groups %}
-                      <option value="{{ g.chat_id }}" {% if config.COMMON_CHAT_ID and config.COMMON_CHAT_ID|string == g.chat_id|string %}selected{% endif %}>
-                        {{ g.name }} ({{ g.chat_id }})
-                      </option>
-                    {% endfor %}
-                  </select>
-                  <small class="text-xs text-gray-500">Список формируется автоматически.</small>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mt-4">ID общего чата (ввести вручную)</label>
-                  <input type="text" name="COMMON_CHAT_ID" class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" placeholder="-1001234567890" value="{{ config.COMMON_CHAT_ID }}" />
+                <div class="col-span-1 md:col-span-2">
+                  <label class="block text-sm font-medium">Активные чаты для уведомлений</label>
+                  <p class="text-xs text-gray-500 mb-2">Отметьте все чаты, в которые бот должен отправлять общие уведомления (о новых ивентах, увольнениях и т.д.). Список пополняется автоматически, когда бота добавляют администратором в новую группу.</p>
+                  <div class="max-h-48 overflow-y-auto border p-3 rounded-lg bg-gray-50 space-y-2 mt-1">
+                      {% for g in admin_groups %}
+                          <label class="block flex items-center p-2 rounded-md hover:bg-gray-200 cursor-pointer">
+                              <input type="checkbox" name="ACTIVE_CHAT_IDS" value="{{ g.chat_id }}"
+                                     class="h-4 w-4 rounded text-primary focus:ring-primary border-gray-300"
+                                     {% if config.ACTIVE_CHAT_IDS and g.chat_id|string in config.ACTIVE_CHAT_IDS %}checked{% endif %}>
+                              <span class="ml-3 text-gray-800">{{ g.name }} <span class="text-xs text-gray-500">({{ g.chat_id }})</span></span>
+                          </label>
+                      {% else %}
+                          <p class="text-sm text-center text-gray-500 py-4">Не найдено групп, где бот является администратором.</p>
+                      {% endfor %}
+                  </div>
                 </div>
               </div>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4 mt-4">
                 <div>
                   <label class="block text-sm font-medium">Широта офиса</label>
                   <input type="text" name="OFFICE_LAT" class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" value="{{ config.OFFICE_LAT }}" />

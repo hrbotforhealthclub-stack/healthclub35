@@ -2,30 +2,18 @@ import os
 from datetime import datetime
 from sqlalchemy import (
     create_engine, Column, Integer, String, Date, Boolean,
-    ForeignKey, Time, Text, DateTime, BigInteger
+    ForeignKey, Time, Text, DateTime, BigInteger, UniqueConstraint
 )
-
-from sqlalchemy.orm import sessionmaker, Session, declarative_base, relationship # <-- ДОБАВИТЬ relationship
+from sqlalchemy.orm import declarative_base, synonym
 from contextlib import contextmanager
-from dotenv import load_dotenv
+from sqlalchemy.orm import sessionmaker, Session
 from aiogram.fsm.state import StatesGroup, State
-from sqlalchemy import UniqueConstraint
-from sqlalchemy import Date
-from sqlalchemy import UniqueConstraint  # (у тебя уже импорт есть выше)
 
-from sqlalchemy import Column, Integer, BigInteger, String, Boolean, DateTime, func
-from sqlalchemy.orm import synonym
+# --- БАЗОВАЯ НАСТРОЙКА ---
 
-
-load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
-
 Base = declarative_base()
-from sqlalchemy import create_engine
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,         # полезно для Render, чтобы отсекать «мертвые» коннекты
-)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 @contextmanager
@@ -36,7 +24,7 @@ def get_session():
     finally:
         db.close()
 
-# --- ОСНОВНЫЕ МОДЕЛИ ---
+# --- МОДЕЛИ ---
 
 class Role(Base):
     __tablename__ = "roles"
@@ -45,7 +33,6 @@ class Role(Base):
 
 class Employee(Base):
     __tablename__ = "employees"
-    joined_main_chat = Column(Boolean, default=False)
     id = Column(Integer, primary_key=True)
     telegram_id = Column(BigInteger, unique=True, index=True, nullable=True)
     email = Column(String, unique=True, nullable=False)
@@ -57,15 +44,8 @@ class Employee(Base):
     training_passed = Column(Boolean, default=False)
     onboarding_completed = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
-    full_name = Column(String(256), nullable=True)
-    position = Column(String(128), nullable=True)
-    contract_number = Column(String(64), nullable=True)
-    employment_date = Column(Date, nullable=True)
-    contact_info = Column(String(64), nullable=True)
-    branch = Column(String(128), nullable=True)
-    cooperation_format = Column(String(64), nullable=True)
-    photo_file_id = Column(String, nullable=True) # <-- НОВОЕ ПОЛЕ ДЛЯ АВАТАРА
-
+    contact_info = Column(String(256), nullable=True)
+    photo_file_id = Column(String, nullable=True)
 
 class Attendance(Base):
     __tablename__ = "attendance"
@@ -74,7 +54,6 @@ class Attendance(Base):
     date = Column(Date, nullable=False, index=True)
     arrival_time = Column(Time, nullable=True)
     departure_time = Column(Time, nullable=True)
-
     __table_args__ = (UniqueConstraint("employee_id", "date", name="uix_attendance_emp_date"),)
 
 class RegCode(Base):
@@ -82,9 +61,6 @@ class RegCode(Base):
     code = Column(String(8), primary_key=True)
     email = Column(String, ForeignKey("employees.email"), nullable=False)
     used = Column(Boolean, default=False)
-
-# --- МОДЕЛИ КОНТЕНТА ---
-# --- МОДЕЛИ КОНТЕНТА ---
 
 class Event(Base):
     __tablename__ = "events"
@@ -105,20 +81,17 @@ class Topic(Base):
     __tablename__ = "topics"
     id = Column(Integer, primary_key=True)
     title = Column(String, nullable=False)
-    content = Column(Text, nullable=False)   # ← было: text (NameError), нужно Text
+    content = Column(Text, nullable=False)
     image_path = Column(String, nullable=True)
 
 class RoleGuide(Base):
     __tablename__ = "role_guides"
     id = Column(Integer, primary_key=True)
-    role = Column(String, index=True, nullable=False) # Для какой роли этот гайд
-    title = Column(String, nullable=False)            # Название (e.g., "Правила оформления отпуска")
-    content = Column(Text, nullable=True)             # Текстовое описание
-    file_path = Column(String, nullable=True)         # Путь к прикрепленному файлу (PDF, Docx)
-    order_index = Column(Integer, default=0)          # Для сортировки
-
-
-# --- МОДЕЛИ ОБУЧЕНИЯ И ОНБОРДИНГА ---
+    role = Column(String, index=True, nullable=False)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=True)
+    file_path = Column(String, nullable=True)
+    order_index = Column(Integer, default=0)
 
 class RoleOnboarding(Base):
     __tablename__ = "role_onboarding"
@@ -126,48 +99,34 @@ class RoleOnboarding(Base):
     role = Column(String, unique=True, nullable=False)
     text = Column(String, nullable=False)
     file_path = Column(String, nullable=True)
-    file_type = Column(String, default='document', nullable=False) # Поле для типа файла ('document', 'video', 'video_note')
+    file_type = Column(String, default='document', nullable=False)
 
 class QuizQuestion(Base):
     __tablename__ = "quiz_questions"
-    id             = Column(Integer, primary_key=True)
-    role           = Column(String, index=True, nullable=False)
-    question       = Column(String, nullable=False)
-    answer         = Column(String, nullable=False)
-    question_type  = Column(String(20), nullable=False, default="text")  # "text" или "choice"
-    options        = Column(String, nullable=True)                       # для choice: "Вариант1;Вариант2;Вариант3"
-    order_index    = Column(Integer, nullable=False, default=0)
-
-class TrainingMaterial(Base):
-    __tablename__ = "training_material"
     id = Column(Integer, primary_key=True)
-    role = Column(String, index=True)
-    title = Column(String, nullable=False)
-    content = Column(String, nullable=False)
-    file_path = Column(String, nullable=True)
-
-
-# --- СИСТЕМНЫЕ МОДЕЛИ ---
+    role = Column(String, index=True, nullable=False)
+    question = Column(String, nullable=False)
+    answer = Column(String, nullable=False)
+    question_type = Column(String(20), nullable=False, default="text")
+    options = Column(String, nullable=True)
+    order_index = Column(Integer, nullable=False, default=0)
 
 class GroupChat(Base):
     __tablename__ = "group_chats"
     id = Column(Integer, primary_key=True)
     chat_id = Column(BigInteger, nullable=False, unique=True, index=True)
-    title = Column(String, nullable=True)           # название чата
-    # ↓↓↓ алиас для обратной совместимости со старым кодом
+    title = Column(String, nullable=True)
     name = synonym('title')
-    username = Column(String, nullable=True)        # @username (может быть None)
-    type = Column(String, nullable=True)            # "group" | "supergroup" | "channel" | "private"
-    is_admin = Column(Boolean, default=False)       # бот админ в этом чате?
-    is_verified = Column(Boolean, default=False)    # если используешь ручную верификацию — оставь
+    username = Column(String, nullable=True)
+    type = Column(String, nullable=True)
+    is_admin = Column(Boolean, default=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-# --- АРХИВНЫЕ МОДЕЛИ ---
 class ArchivedEmployee(Base):
     __tablename__ = "archived_employees"
-    id = Column(Integer, primary_key=True, autoincrement=True)  # автоинкремент
-    original_employee_id = Column(Integer, nullable=False, index=True)  # ← добавлено
-    telegram_id = Column(BigInteger)  # ← безопасно для больших TG ID
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    original_employee_id = Column(Integer, nullable=False, index=True)
+    telegram_id = Column(BigInteger)
     email = Column(String, nullable=False)
     role = Column(String, nullable=False)
     name = Column(String)
@@ -183,7 +142,6 @@ class ArchivedAttendance(Base):
     date = Column(Date, nullable=False, index=True)
     arrival_time = Column(Time, nullable=True)
     departure_time = Column(Time, nullable=True)
-    # НОВАЯ ТАБЛИЦА: Хранилище всех текстов бота
 
 class BotText(Base):
     __tablename__ = "bot_texts"
@@ -191,7 +149,6 @@ class BotText(Base):
     text = Column(Text, nullable=False, default="Текст не задан")
     description = Column(String, nullable=True)
 
-# НОВАЯ ТАБЛИЦА: Конструктор вопросов при онбординге
 class OnboardingQuestion(Base):
     __tablename__ = "onboarding_questions"
     id = Column(Integer, primary_key=True)
@@ -200,24 +157,16 @@ class OnboardingQuestion(Base):
     question_text = Column(String, nullable=False)
     data_key = Column(String(50), nullable=False)
     is_required = Column(Boolean, default=True)
+    __table_args__ = (UniqueConstraint("role", "order_index", name="onboarding_questions_role_order_key"),)
 
-    __table_args__ = (
-        UniqueConstraint("role", "order_index", name="onboarding_questions_role_order_key"),
-    )
-
-
-# НОВАЯ ТАБЛИЦА: Хранилище ответов на кастомные вопросы
 class EmployeeCustomData(Base):
     __tablename__ = "employee_custom_data"
     id = Column(Integer, primary_key=True)
     employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), index=True, nullable=False)
     data_key = Column(String(50), nullable=False)
     data_value = Column(Text, nullable=False)
+    __table_args__ = (UniqueConstraint("employee_id", "data_key", name="u_employee_data_key"),)
 
-    __table_args__ = (
-        UniqueConstraint("employee_id", "data_key", name="u_employee_data_key"),  # ⬅️ добавили
-    )
-# НОВАЯ ТАБЛИЦА: Шаги "Знакомства с компанией"
 class OnboardingStep(Base):
     __tablename__ = "onboarding_steps"
     id = Column(Integer, primary_key=True)
@@ -225,15 +174,21 @@ class OnboardingStep(Base):
     order_index = Column(Integer, default=0)
     message_text = Column(Text, nullable=True)
     file_path = Column(String, nullable=True)
-    file_type = Column(String(20), nullable=True)  # 'video_note', 'photo', 'document'
-
-# FSM States (тоже без внешней индентации)
-class Onboarding(StatesGroup):
-    awaiting_answer = State()
+    file_type = Column(String(20), nullable=True)
 
 class ArchivedIdea(Base):
     __tablename__ = "archived_ideas"
     id = Column(Integer, primary_key=True)
     employee_id = Column(Integer, nullable=False)
-    idea_text = Column(Text, nullable=False)  # ← переименовано
+    idea_text = Column(Text, nullable=False)
     submission_date = Column(DateTime, default=datetime.utcnow)
+
+class ConfigSetting(Base):
+    __tablename__ = "config_settings"
+    key = Column(String(50), primary_key=True)
+    value = Column(Text, nullable=True)
+
+# FSM States
+class Onboarding(StatesGroup):
+    awaiting_answer = State()
+

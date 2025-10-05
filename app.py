@@ -1,98 +1,42 @@
+# 1. Загрузка переменных окружения должна быть самым первым действием
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# 2. Стандартные и сторонние библиотеки
 import os
 import random
-from datetime import datetime
-from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
-from werkzeug.utils import secure_filename
-from dotenv import load_dotenv, set_key
-import subprocess  # ← добавили
-import asyncio  # <-- ДОБАВИТЬ
-from aiogram import Bot  # <-- ДОБАВИТЬ
+import asyncio
 import threading
 import html
 import shutil
-
-from models import (
-    Base, engine, get_session, Employee, Event, Idea, QuizQuestion,
-    RoleOnboarding, Topic, RegCode, ArchivedEmployee, Attendance,
-    ArchivedAttendance, ArchivedIdea, Role,
-    BotText, OnboardingQuestion, OnboardingStep, EmployeeCustomData, RoleGuide, GroupChat
-)
-
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
+import io
+from datetime import datetime, date, time
 from functools import wraps
 
-# стало
-import os
-import io
-
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from werkzeug.utils import secure_filename
+from aiogram import Bot
+from aiogram.client.bot import DefaultBotProperties
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.formatting.rule import FormulaRule
 
+# 3. Импорты из вашего проекта
+from models import (
+    Base, engine, get_session, Employee, Event, Idea, QuizQuestion,
+    RoleOnboarding, Topic, RegCode, ArchivedEmployee, Attendance,
+    ArchivedAttendance, ArchivedIdea, Role,
+    BotText, OnboardingQuestion, OnboardingStep, EmployeeCustomData, RoleGuide, GroupChat,
+    ConfigSetting
+)
+
 # --- НАСТРОЙКА ПРИЛОЖЕНИЯ ---
-load_dotenv()
 app = Flask(__name__)
-from datetime import datetime, date, time
-
-
-@app.template_filter('fmt_dt')
-def fmt_dt(value, fmt='%Y-%m-%d %H:%M'):
-    if value is None:
-        return ''
-    if isinstance(value, (datetime, date)):
-        try:
-            return value.strftime(fmt)
-        except Exception:
-            pass
-    s = str(value)
-    patterns = [
-        '%Y-%m-%d %H:%M:%S.%f',
-        '%Y-%m-%d %H:%M:%S',
-        '%Y-%m-%dT%H:%M',
-        '%Y-%m-%d %H:%M',
-        '%Y-%m-%d',
-        '%d.%m.%Y %H:%M',
-        '%d.%m.%Y',
-    ]
-    for p in patterns:
-        try:
-            dt = datetime.strptime(s, p)
-            return dt.strftime(fmt)
-        except Exception:
-            continue
-    return s
-
-
-def _run_async_bg(coro):
-    """Запустить корутину безопасно: если event loop уже крутится — уводим в поток."""
-    try:
-        asyncio.run(coro)
-    except RuntimeError:
-        threading.Thread(target=lambda: asyncio.run(coro), daemon=True).start()
-
-
-@app.template_filter('fmt_date')
-def fmt_date(value, fmt="%d.%m.%Y"):
-    if not value:
-        return ""
-    if isinstance(value, str):
-        try:
-            value = datetime.strptime(value, "%Y-%m-%d").date()
-        except ValueError:
-            return value  # если формат неизвестный, вернуть как есть
-    return value.strftime(fmt)
-
-
-@app.template_filter('fmt_time')
-def fmt_time(value, fmt='%H:%M:%S'):
-    if value is None:
-        return ''
-    return value.strftime(fmt)
-
-
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "a_very_secret_key_for_flask")
 
 UPLOAD_FOLDER_ONBOARDING = 'uploads/onboarding'
@@ -102,6 +46,8 @@ app.config['UPLOAD_FOLDER_TOPICS'] = UPLOAD_FOLDER_TOPICS
 
 os.makedirs(UPLOAD_FOLDER_ONBOARDING, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER_TOPICS, exist_ok=True)
+
+# Эта команда создаст таблицы, если их нет. Для изменений используйте миграции Alembic.
 Base.metadata.create_all(engine)
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
@@ -119,6 +65,85 @@ ONBOARDING_DATA_KEYS = {
 }
 
 
+# --- ХЕЛПЕРЫ ДЛЯ КОНФИГУРАЦИИ В БД ---
+def get_config_value(key: str, default: str = "") -> str:
+    """Получает значение настройки из БД. Создает с default, если не найдено."""
+    with get_session() as db:
+        setting = db.get(ConfigSetting, key)
+        if setting and setting.value is not None:
+            return setting.value
+
+        if setting:
+            setting.value = default
+        else:
+            setting = ConfigSetting(key=key, value=default)
+            db.add(setting)
+        db.commit()
+        return default
+
+
+def set_config_value(key: str, value: str):
+    """Устанавливает значение настройки в БД."""
+    with get_session() as db:
+        setting = db.get(ConfigSetting, key)
+        if setting:
+            setting.value = value
+        else:
+            setting = ConfigSetting(key=key, value=value)
+            db.add(setting)
+        db.commit()
+
+
+# --- ОБЩИЕ ХЕЛПЕРЫ И ФИЛЬТРЫ ---
+@app.template_filter('fmt_dt')
+def fmt_dt(value, fmt='%Y-%m-%d %H:%M'):
+    if value is None:
+        return ''
+    if isinstance(value, (datetime, date)):
+        try:
+            return value.strftime(fmt)
+        except Exception:
+            pass
+    s = str(value)
+    patterns = [
+        '%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M',
+        '%Y-%m-%d %H:%M', '%Y-%m-%d', '%d.%m.%Y %H:%M', '%d.%m.%Y',
+    ]
+    for p in patterns:
+        try:
+            dt = datetime.strptime(s, p)
+            return dt.strftime(fmt)
+        except Exception:
+            continue
+    return s
+
+
+def _run_async_bg(coro):
+    """Запускает асинхронную задачу в фоновом потоке."""
+    try:
+        asyncio.run(coro)
+    except RuntimeError:
+        threading.Thread(target=lambda: asyncio.run(coro), daemon=True).start()
+
+
+@app.template_filter('fmt_date')
+def fmt_date(value, fmt="%d.%m.%Y"):
+    if not value: return ""
+    if isinstance(value, str):
+        try:
+            value = datetime.strptime(value, "%Y-%m-%d").date()
+        except ValueError:
+            return value
+    return value.strftime(fmt)
+
+
+@app.template_filter('fmt_time')
+def fmt_time(value, fmt='%H:%M:%S'):
+    if value is None: return ''
+    return value.strftime(fmt)
+
+
+# --- АУТЕНТИФИКАЦИЯ И ДОСТУП ---
 def login_required(view_func):
     @wraps(view_func)
     def wrapped(*args, **kwargs):
@@ -131,78 +156,13 @@ def login_required(view_func):
 
 @app.before_request
 def require_login_for_all():
-    # Разрешаем доступ без логина для страниц логина, статики и webhooks/healthchecks при желании
-    open_paths = {"/login", "/logout"}  # можно пополнять
+    open_paths = {"/login", "/logout"}
     if request.path.startswith("/static"):
         return
     if request.path in open_paths:
         return
     if not session.get("is_admin"):
         return redirect(url_for("login", next=request.path))
-
-
-def get_text(key: str, default: str = "Текст не найден") -> str:
-    """Получает текст для бота из БД по ключу."""
-    with get_session() as db:
-        text_obj = db.get(BotText, key)
-        return text_obj.text if text_obj else default
-
-
-from aiogram.client.bot import DefaultBotProperties
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
-from flask import current_app
-
-
-def _chat_candidates(raw: str | int) -> list:
-    """
-    Возвращает список возможных chat_id:
-    - @username как есть
-    - уже нормальный -100... как есть
-    - укороченный отрицательный -XXXXXXXXX -> пробуем как есть и с префиксом -100
-    """
-    raw = str(raw if raw is not None else "").strip()
-    if not raw:
-        return []
-    if raw.startswith("@"):
-        return [raw]
-    if raw.startswith("-100"):
-        return [raw]
-    if raw.startswith("-") and raw[1:].isdigit():
-        return [raw, f"-100{raw[1:]}"]
-    return [raw]
-
-
-async def _send_tg_message(text: str, chat_id: str | None = None):
-    """Единая отправка сообщений: поддерживает и числовой id (-100...), и @username."""
-    token = os.getenv("BOT_TOKEN")
-    cid_raw = chat_id if chat_id is not None else os.getenv("COMMON_CHAT_ID")
-    cid = str(cid_raw or "").strip()
-
-    if not token:
-        print("[tg] BOT_TOKEN missing");
-        return False, "BOT_TOKEN missing"
-    if not cid:
-        print("[tg] COMMON_CHAT_ID missing");
-        return False, "COMMON_CHAT_ID missing"
-
-    # Определяем целевой идентификатор
-    s = cid.lstrip('-')
-    target = int(cid) if s.isdigit() else cid
-
-    bot = Bot(token=token, default=DefaultBotProperties(parse_mode="HTML"))
-    try:
-        msg = await bot.send_message(chat_id=target, text=text)
-        return True, f"sent:{msg.message_id}"
-    except Exception as e:
-        print(f"[tg] send error: {e}")
-        return False, str(e)
-    finally:
-        await bot.session.close()
-
-
-def notify_common_chat(text: str):
-    """Удобная обёртка для отправки в общий чат в фоне."""
-    _run_async_bg(_send_tg_message(text))
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -228,18 +188,65 @@ def logout():
     return redirect(url_for("login"))
 
 
-async def _list_verified_admin_groups_async(rows):
-    """Проверяем GroupChat через Телеграм и возвращаем только валидные (бот=админ)."""
-    token = os.getenv("BOT_TOKEN")
-    if not token:
-        return []
+# --- ЛОГИКА TELEGRAM ---
+def get_text(key: str, default: str = "Текст не найден") -> str:
+    """Получает текст для бота из БД по ключу."""
+    with get_session() as db:
+        text_obj = db.get(BotText, key)
+        return text_obj.text if text_obj else default
 
+
+def _chat_candidates(raw: str | int) -> list:
+    raw = str(raw if raw is not None else "").strip()
+    if not raw: return []
+    if raw.startswith("@"): return [raw]
+    if raw.startswith("-100"): return [raw]
+    if raw.startswith("-") and raw[1:].isdigit(): return [raw, f"-100{raw[1:]}"]
+    return [raw]
+
+
+async def _send_tg_message(text: str, chat_id: str):
+    token = get_config_value("BOT_TOKEN")
+    if not token:
+        print("[tg] BOT_TOKEN missing in DB")
+        return False, "BOT_TOKEN missing"
+    if not chat_id:
+        print(f"[tg] chat_id is missing for text: {text[:50]}...")
+        return False, "chat_id is missing"
+
+    target = int(chat_id) if str(chat_id).strip().lstrip('-').isdigit() else chat_id
+    bot = Bot(token=token, default=DefaultBotProperties(parse_mode="HTML"))
+    try:
+        msg = await bot.send_message(chat_id=target, text=text)
+        return True, f"sent:{msg.message_id}"
+    except Exception as e:
+        print(f"[tg] send error to {chat_id}: {e}")
+        return False, str(e)
+    finally:
+        await bot.session.close()
+
+
+def notify_common_chat(text: str):
+    async def _send_to_all_active_chats():
+        active_chats_str = get_config_value("ACTIVE_CHAT_IDS", "")
+        if not active_chats_str:
+            print("[tg] ACTIVE_CHAT_IDS is not set in DB")
+            return
+        chat_ids = [cid.strip() for cid in active_chats_str.split(',') if cid.strip()]
+        tasks = [_send_tg_message(text, chat_id) for chat_id in chat_ids]
+        if tasks: await asyncio.gather(*tasks)
+
+    _run_async_bg(_send_to_all_active_chats())
+
+
+async def _list_verified_admin_groups_async(rows):
+    token = get_config_value("BOT_TOKEN")
+    if not token: return []
     bot = Bot(token=token, default=DefaultBotProperties(parse_mode="HTML"))
     out = []
     try:
         me = await bot.get_me()
         for row in rows:
-            ok = False
             for cid in _chat_candidates(row.chat_id):
                 try:
                     chat = await bot.get_chat(cid)
@@ -249,7 +256,6 @@ async def _list_verified_admin_groups_async(rows):
                         norm_id = str(chat.id)
                         name = getattr(chat, "title", None) or getattr(chat, "username", None) or row.name
                         out.append({"chat_id": norm_id, "name": name, "_db_id": getattr(row, "id", None)})
-                        ok = True
                         break
                 except Exception:
                     continue
@@ -259,10 +265,8 @@ async def _list_verified_admin_groups_async(rows):
 
 
 def list_verified_admin_groups():
-    """Слой над async: вытаскивает строки из БД, верифицирует, обновляет БД, отдаёт список для шаблона."""
     with get_session() as db:
         rows = db.query(GroupChat).order_by(GroupChat.name).all()
-
     try:
         verified = asyncio.run(_list_verified_admin_groups_async(rows))
     except RuntimeError:
@@ -270,27 +274,26 @@ def list_verified_admin_groups():
 
     with get_session() as db:
         for v in verified:
-            if v["_db_id"] is None:
-                continue
+            if v["_db_id"] is None: continue
             obj = db.get(GroupChat, v["_db_id"])
-            if obj:
-                changed = False
-                if obj.chat_id != v["chat_id"]:
-                    obj.chat_id = v["chat_id"];
-                    changed = True
-                if obj.name != v["name"]:
-                    obj.name = v["name"];
-                    changed = True
-                if changed:
-                    db.add(obj)
+            if obj and (obj.chat_id != v["chat_id"] or obj.name != v["name"]):
+                obj.chat_id = v["chat_id"]
+                obj.name = v["name"]
+                db.add(obj)
         db.commit()
-
     return [{"chat_id": v["chat_id"], "name": v["name"]} for v in verified]
 
 
-# --- ОСНОВНОЙ МАРШРУТ (ГЛАВНАЯ СТРАНИЦА) ---
+# --- ОСНОВНЫЕ МАРШРУТЫ ---
 @app.route('/')
 def index():
+    # УЛУЧШЕНИЕ: Проверяем токен при загрузке главной страницы
+    bot_token = get_config_value("BOT_TOKEN")
+    if not bot_token:
+        flash(
+            "Внимание: Токен бота не задан. Пожалуйста, укажите его в разделе 'Настройки', чтобы все функции заработали.",
+            "warning")
+
     with get_session() as db:
         employees = db.query(Employee).filter_by(is_active=True).order_by(Employee.name).all()
         archived_employees = db.query(ArchivedEmployee).order_by(ArchivedEmployee.dismissal_date.desc()).all()
@@ -306,42 +309,32 @@ def index():
             questions = db.query(OnboardingQuestion).filter_by(role=role.name).order_by(
                 OnboardingQuestion.order_index).all()
             steps = db.query(OnboardingStep).filter_by(role=role.name).order_by(OnboardingStep.order_index).all()
-            onboarding_constructor_data[role.name] = {
-                "questions": questions,
-                "steps": steps
-            }
+            onboarding_constructor_data[role.name] = {"questions": questions, "steps": steps}
 
         role_guides_data = {}
         for role in roles:
             guides = db.query(RoleGuide).filter_by(role=role.name).order_by(RoleGuide.order_index).all()
             role_guides_data[role.name] = guides
 
-        attendance_records = db.query(
-            Attendance, Employee.name
-        ).join(
-            Employee, Attendance.employee_id == Employee.id
-        ).order_by(
-            Attendance.date.desc(), Attendance.arrival_time.desc()
-        ).all()
+        attendance_records = db.query(Attendance, Employee.name).join(Employee,
+                                                                      Attendance.employee_id == Employee.id).order_by(
+            Attendance.date.desc(), Attendance.arrival_time.desc()).all()
 
         onboarding_data = {}
         for role in roles:
             onboarding_info = db.query(RoleOnboarding).filter_by(role=role.name).first()
             quiz_questions = db.query(QuizQuestion).filter_by(role=role.name).order_by(QuizQuestion.order_index).all()
-            onboarding_data[role.name] = {
-                "info": onboarding_info,
-                "quizzes": quiz_questions
-            }
+            onboarding_data[role.name] = {"info": onboarding_info, "quizzes": quiz_questions}
 
         admin_groups = list_verified_admin_groups()
 
         config = {
-            "BOT_TOKEN": os.getenv("BOT_TOKEN"),
-            "DATABASE_URL": os.getenv("DATABASE_URL"),
-            "COMMON_CHAT_ID": os.getenv("COMMON_CHAT_ID"),
-            "OFFICE_LAT": os.getenv("OFFICE_LAT"),
-            "OFFICE_LON": os.getenv("OFFICE_LON"),
-            "OFFICE_RADIUS_METERS": os.getenv("OFFICE_RADIUS_METERS")
+            "BOT_TOKEN": bot_token,
+            "ACTIVE_CHAT_IDS": [c.strip() for c in (get_config_value("ACTIVE_CHAT_IDS", "") or "").split(',') if
+                                c.strip()],
+            "OFFICE_LAT": get_config_value("OFFICE_LAT", ""),
+            "OFFICE_LON": get_config_value("OFFICE_LON", ""),
+            "OFFICE_RADIUS_METERS": get_config_value("OFFICE_RADIUS_METERS", "")
         }
 
     return render_template('index.html', employees=employees, archived_employees=archived_employees,
@@ -350,10 +343,10 @@ def index():
                            onboarding_constructor_data=onboarding_constructor_data,
                            onboarding_data_keys=ONBOARDING_DATA_KEYS,
                            attendance_records=attendance_records, role_guides_data=role_guides_data,
-                           admin_groups=admin_groups, )
+                           admin_groups=admin_groups)
 
 
-# --- AJAX-READY ROUTES ---
+# --- AJAX-МАРШРУТЫ (CRUD) ---
 
 @app.route('/texts/update/<string:text_id>', methods=['POST'])
 def update_text(text_id):
@@ -369,20 +362,17 @@ def update_text(text_id):
 @app.route('/onboarding/question/add/<path:role>', methods=['POST'])
 def add_onboarding_question(role):
     with get_session() as db:
-        # НАХОДИМ СЛЕДУЮЩИЙ СВОБОДНЫЙ ИНДЕКС
         max_idx = db.query(func.max(OnboardingQuestion.order_index)).filter_by(role=role).scalar()
         next_idx = (max_idx or -1) + 1
-
         new_q = OnboardingQuestion(
             role=role,
             question_text=request.form['question_text'],
             data_key=request.form['data_key'],
             is_required=('is_required' in request.form),
-            order_index=next_idx  # <-- ПРИСВАИВАЕМ ПРАВИЛЬНЫЙ ИНДЕКС
+            order_index=next_idx
         )
         db.add(new_q)
         db.commit()
-
         return jsonify({
             "success": True, "message": "Новый вопрос для онбординга добавлен.", "category": "success",
             "item": {
@@ -408,24 +398,18 @@ def reorder_onboarding_question():
     ordered_ids = request.get_json(silent=True).get('ordered_ids', [])
     if not ordered_ids:
         return jsonify(success=False, message="Нет данных для сортировки"), 400
-
     with get_session() as session:
-        # 1. Сначала загружаем все нужные объекты в словарь для быстрого доступа
         questions_map = {
             str(q.id): q for q in session.query(OnboardingQuestion).filter(
-                OnboardingQuestion.id.in_([int(i) for i in ordered_ids])
+                OnboardingQuestion.id.in_([int(i) for i in ordered_ids if i.isdigit()])
             ).all()
         }
-
-        # 2. Теперь изменяем их в памяти, не вызывая преждевременных запросов к БД
         for index, qid in enumerate(ordered_ids):
             if qid in questions_map:
                 questions_map[qid].order_index = index
-
-        # 3. Сохраняем все изменения одним коммитом
         session.commit()
-
     return jsonify(success=True)
+
 
 @app.route('/onboarding/step/add/<path:role>', methods=['POST'])
 def add_onboarding_step(role):
@@ -437,7 +421,7 @@ def add_onboarding_step(role):
         )
         if 'file' in request.files and request.files['file'].filename != '':
             file = request.files['file']
-            filename = secure_filename(f"{role.lower()}_step_{file.filename}")
+            filename = secure_filename(f"{role.lower().replace('/', '_')}_step_{file.filename}")
             upload_folder = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], 'steps')
             os.makedirs(upload_folder, exist_ok=True)
             file_path = os.path.join(upload_folder, filename)
@@ -524,9 +508,10 @@ def add_employee():
         db.commit()
 
         return jsonify({
-            "success": True, "message": f"Сотрудник с email {email} добавлен. Сгенерируйте код для регистрации.",
+            "success": True,
+            "message": f"Сотрудник с email {email} добавлен.",
             "category": "success",
-            "employee": {"id": new_emp.id, "name": new_emp.name, "email": new_emp.email, "role": new_emp.role}
+            "action": "reload"  # <-- ИЗМЕНЕНИЕ: Говорим фронтенду перезагрузить страницу
         })
 
 
@@ -542,7 +527,7 @@ def reset_progress(emp_id):
         db.commit()
         if emp.telegram_id:
             _run_async_bg(
-                bot.send_message(emp.telegram_id, get_text('progress_reset_notification', 'Ваш прогресс сброшен.')))
+                _send_tg_message(get_text('progress_reset_notification', 'Ваш прогресс сброшен.'), emp.telegram_id))
         return jsonify({"success": True, "message": f"Прогресс для {emp.name} сброшен.", "category": "warning"})
 
 
@@ -560,16 +545,18 @@ def send_broadcast():
         return jsonify({"success": False, "message": "Не найдено сотрудников для рассылки.", "category": "warning"})
 
     async def _send_to_all():
-        tg_bot = Bot(token=os.getenv("BOT_TOKEN"))
+        token = get_config_value("BOT_TOKEN")
+        if not token: return
+        bot = Bot(token=token)
         try:
             for user_id in target_users_ids:
                 try:
-                    await tg_bot.send_message(chat_id=user_id, text=message_text)
+                    await bot.send_message(chat_id=user_id, text=message_text)
                 except Exception:
                     pass
                 await asyncio.sleep(0.1)
         finally:
-            await tg_bot.session.close()
+            await bot.session.close()
 
     _run_async_bg(_send_to_all())
     return jsonify({"success": True, "message": f"Рассылка для {len(target_users_ids)} пользователей запущена.",
@@ -608,8 +595,7 @@ def dismiss_employee(emp_id):
         dismiss_text = get_text('employee_dismissed_announcement', '👋 {name} ({role}) больше не с нами.').format(
             name=html.escape(name_cache), role=html.escape(role_cache))
         notify_common_chat(dismiss_text)
-        return jsonify({"success": True, "message": f"Сотрудник {name_cache} деактивирован.", "category": "warning",
-                        "action": "reload"})
+        return jsonify({"success": True, "message": f"Сотрудник {name_cache} деактивирован.", "category": "warning"})
 
 
 @app.route('/employee/reset_telegram/<int:emp_id>', methods=['POST'])
@@ -648,7 +634,7 @@ def update_onboarding(role):
         onboarding.file_type = request.form['file_type']
         if 'file' in request.files and request.files['file'].filename != '':
             file = request.files['file']
-            filename = secure_filename(f"{role.lower()}_{file.filename}")
+            filename = secure_filename(f"{role.lower().replace('/', '_')}_{file.filename}")
             file_path = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], filename)
             file.save(file_path)
             onboarding.file_path = file_path
@@ -813,7 +799,7 @@ def add_guide(role):
             file = request.files['file']
             upload_folder = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], 'guides')
             os.makedirs(upload_folder, exist_ok=True)
-            filename = secure_filename(f"{role.lower()}_guide_{file.filename}")
+            filename = secure_filename(f"{role.lower().replace('/', '_')}_guide_{file.filename}")
             file_path = os.path.join(upload_folder, filename)
             file.save(file_path)
             new_guide.file_path = file_path
@@ -836,45 +822,91 @@ def delete_guide(guide_id):
 
 @app.route('/config/update', methods=['POST'])
 def update_config():
-    env_file = '.env'
-    raw_id = (request.form.get("COMMON_CHAT_ID_SELECT", "") or request.form.get("COMMON_CHAT_ID", "")).strip()
+    active_chat_ids = request.form.getlist("ACTIVE_CHAT_IDS")
+    active_chats_str = ",".join(active_chat_ids)
+    set_config_value("ACTIVE_CHAT_IDS", active_chats_str)
 
-    async def _resolve_chat_id_async(raw: str) -> str | None:
-        token = os.getenv("BOT_TOKEN")
-        if not token or not raw: return None
-        bot = Bot(token=token)
-        try:
-            for cid in _chat_candidates(raw):
-                try:
-                    return str((await bot.get_chat(cid)).id)
-                except Exception:
-                    continue
-            return None
-        finally:
-            await bot.session.close()
+    set_config_value("OFFICE_LAT", request.form.get("OFFICE_LAT", ""))
+    set_config_value("OFFICE_LON", request.form.get("OFFICE_LON", ""))
+    set_config_value("OFFICE_RADIUS_METERS", request.form.get("OFFICE_RADIUS_METERS", ""))
 
-    try:
-        norm = asyncio.run(_resolve_chat_id_async(raw_id))
-    except RuntimeError:
-        norm = None
-
-    common_chat_id = norm or raw_id
-    set_key(env_file, "COMMON_CHAT_ID", common_chat_id)
-    os.environ["COMMON_CHAT_ID"] = common_chat_id
-
-    set_key(env_file, "OFFICE_LAT", request.form.get("OFFICE_LAT", ""));
-    os.environ["OFFICE_LAT"] = request.form.get("OFFICE_LAT", "")
-    set_key(env_file, "OFFICE_LON", request.form.get("OFFICE_LON", ""));
-    os.environ["OFFICE_LON"] = request.form.get("OFFICE_LON", "")
-    set_key(env_file, "OFFICE_RADIUS_METERS", request.form.get("OFFICE_RADIUS_METERS", ""));
-    os.environ["OFFICE_RADIUS_METERS"] = request.form.get("OFFICE_RADIUS_METERS", "")
-
-    if request.form.get("BOT_TOKEN"):
-        set_key(env_file, "BOT_TOKEN", request.form.get("BOT_TOKEN"));
-        os.environ["BOT_TOKEN"] = request.form.get("BOT_TOKEN")
+    new_bot_token = request.form.get("BOT_TOKEN")
+    if new_bot_token:
+        set_config_value("BOT_TOKEN", new_bot_token)
 
     return jsonify({"success": True, "message": "Настройки сохранены. Перезапустите бота, чтобы они применились.",
                     "category": "info"})
+
+
+@app.route('/settings/copy', methods=['POST'])
+def copy_settings():
+    source_role = request.form.get('source_role')
+    target_roles = request.form.getlist('target_roles')
+    sections_to_copy = request.form.getlist('sections_to_copy')
+
+    if not all([source_role, target_roles, sections_to_copy]):
+        return jsonify({"success": False, "message": "Недостаточно данных для копирования.", "category": "danger"}), 400
+
+    with get_session() as db:
+        for target_role in target_roles:
+            if 'scenarios' in sections_to_copy:
+                db.query(OnboardingQuestion).filter_by(role=target_role).delete()
+                db.query(OnboardingStep).filter_by(role=target_role).delete()
+
+                source_questions = db.query(OnboardingQuestion).filter_by(role=source_role).order_by(
+                    OnboardingQuestion.order_index).all()
+                for q in source_questions:
+                    new_q = OnboardingQuestion(role=target_role, question_text=q.question_text, data_key=q.data_key,
+                                               is_required=q.is_required, order_index=q.order_index)
+                    db.add(new_q)
+
+                source_steps = db.query(OnboardingStep).filter_by(role=source_role).order_by(
+                    OnboardingStep.order_index).all()
+                for step in source_steps:
+                    new_step = OnboardingStep(role=target_role, message_text=step.message_text,
+                                              file_type=step.file_type, order_index=step.order_index)
+                    if step.file_path and os.path.exists(step.file_path):
+                        filename = os.path.basename(step.file_path)
+                        new_filename = f"{target_role.lower().replace('/', '_')}_step_{filename.split('_step_')[-1]}"
+                        upload_folder = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], 'steps')
+                        os.makedirs(upload_folder, exist_ok=True)
+                        new_filepath = os.path.join(upload_folder, new_filename)
+                        shutil.copy(step.file_path, new_filepath)
+                        new_step.file_path = new_filepath
+                    db.add(new_step)
+
+            if 'training' in sections_to_copy:
+                db.query(QuizQuestion).filter_by(role=target_role).delete()
+                db.query(RoleOnboarding).filter_by(role=target_role).delete()
+
+                source_quizzes = db.query(QuizQuestion).filter_by(role=source_role).order_by(
+                    QuizQuestion.order_index).all()
+                for quiz in source_quizzes:
+                    new_quiz = QuizQuestion(role=target_role, question=quiz.question, answer=quiz.answer,
+                                            question_type=quiz.question_type, options=quiz.options,
+                                            order_index=quiz.order_index)
+                    db.add(new_quiz)
+
+                source_training = db.query(RoleOnboarding).filter_by(role=source_role).first()
+                if source_training:
+                    new_training = RoleOnboarding(role=target_role, text=source_training.text,
+                                                  file_type=source_training.file_type)
+                    if source_training.file_path and os.path.exists(source_training.file_path):
+                        filename = os.path.basename(source_training.file_path)
+                        new_filename = f"{target_role.lower().replace('/', '_')}_{filename.split('_', 1)[-1]}"
+                        new_filepath = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], new_filename)
+                        shutil.copy(source_training.file_path, new_filepath)
+                        new_training.file_path = new_filepath
+                    db.add(new_training)
+
+        db.commit()
+
+    return jsonify({
+        "success": True,
+        "message": f"Настройки из '{source_role}' скопированы в {len(target_roles)} ролей. Страница будет перезагружена.",
+        "category": "success",
+        "action": "reload"
+    })
 
 
 @app.route('/export/employees.xlsx', methods=['GET'])
@@ -905,13 +937,12 @@ def export_employees_xlsx():
         db.commit()
 
     wb = Workbook()
-    ws = wb.active;
+    ws = wb.active
     ws.title = "Сотрудники"
     headers = ["ID", "ФИО", "Email", "Роль", "Дата рождения", "Активен", "Зарегистрирован", "Прошёл тренинг",
                "Telegram ID", "Код для привязки"]
     ws.append(headers)
-    # Styles...
-    header_fill = PatternFill("solid", fgColor="4F46E5");
+    header_fill = PatternFill("solid", fgColor="4F46E5")
     header_font = Font(color="FFFFFF", bold=True)
     thin_border = Border(left=Side(style="thin", color="D1D5DB"), right=Side(style="thin", color="D1D5DB"),
                          top=Side(style="thin", color="D1D5DB"), bottom=Side(style="thin", color="D1D5DB"))
@@ -931,7 +962,7 @@ def export_employees_xlsx():
                                                                    fill=PatternFill("solid", fgColor="ECFDF5")))
 
     mem = io.BytesIO()
-    wb.save(mem);
+    wb.save(mem)
     mem.seek(0)
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     return send_file(mem, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -948,17 +979,15 @@ def landing():
 def api_bot_chats_recheck():
     if not session.get("is_admin"):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
-
-    token = os.getenv("BOT_TOKEN")
+    token = get_config_value("BOT_TOKEN")
     if not token:
-        return jsonify({"ok": False, "error": "BOT_TOKEN is empty"}), 400
+        return jsonify({"ok": False, "error": "BOT_TOKEN is not set in DB"}), 400
 
     async def _recheck():
         bot = Bot(token=token, default=DefaultBotProperties(parse_mode="HTML"))
         try:
             me = await bot.get_me()
             updated, errors = 0, []
-
             with get_session() as s:
                 rows = s.execute(select(GroupChat)).scalars().all()
                 for r in rows:
@@ -979,10 +1008,8 @@ def api_bot_chats_recheck():
                             else:
                                 errors.append({"chat_id": r.chat_id, "error": str(e1)})
                                 continue
-
                         status_value = getattr(getattr(m, "status", None), "value", getattr(m, "status", None))
                         is_admin = status_value in ("creator", "administrator")
-
                         ch = await bot.get_chat(sid)
                         r.is_admin = bool(is_admin)
                         r.title = getattr(ch, "title", None) or getattr(ch, "full_name", None) or str(sid)
@@ -991,10 +1018,8 @@ def api_bot_chats_recheck():
                         r.updated_at = datetime.utcnow()
                         s.add(r)
                         updated += 1
-
                     except (TelegramBadRequest, TelegramForbiddenError) as e:
                         errors.append({"chat_id": r.chat_id, "error": str(e)})
-
                 s.commit()
             return {"updated": updated, "errors": errors, "bot": {"id": me.id, "username": me.username}}
         finally:
@@ -1008,7 +1033,6 @@ def api_bot_chats_recheck():
 def api_bot_chats_list():
     if not session.get("is_admin"):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
-
     with get_session() as db:
         rows = db.query(GroupChat).order_by(GroupChat.updated_at.desc().nullslast()).all()
         data = [{
@@ -1023,7 +1047,10 @@ def api_bot_chats_list():
 @login_required
 def debug_me():
     async def _me():
-        bot = Bot(token=os.getenv("BOT_TOKEN"))
+        token = get_config_value("BOT_TOKEN")
+        if not token:
+            return {"error": "BOT_TOKEN not set in DB"}
+        bot = Bot(token=token)
         try:
             me = await bot.get_me()
             return {"id": me.id, "username": me.username, "name": me.first_name}
@@ -1040,12 +1067,15 @@ def debug_me():
 @app.route('/debug/diag_chat')
 @login_required
 def debug_diag_chat():
-    raw = str(request.args.get('chat_id') or os.getenv('COMMON_CHAT_ID') or '').strip()
+    raw = str(request.args.get('chat_id') or "").strip()
     if not raw:
-        return jsonify(ok=False, error="no chat_id provided and COMMON_CHAT_ID empty")
+        return jsonify(ok=False, error="no chat_id provided")
 
     async def _diag(raw_id: str):
-        bot = Bot(token=os.getenv("BOT_TOKEN"))
+        token = get_config_value("BOT_TOKEN")
+        if not token:
+            return {"ok": False, "error": "BOT_TOKEN not set in DB"}
+        bot = Bot(token=token)
         try:
             me = await bot.get_me()
             out = {"me": {"id": me.id, "username": me.username}, "candidates": _chat_candidates(raw_id), "results": []}
@@ -1073,101 +1103,6 @@ def debug_diag_chat():
         return jsonify(ok=False, error="event loop busy, retry once"), 503
     return jsonify(ok=True, **res)
 
-
-@app.route('/settings/copy', methods=['POST'])
-def copy_settings():
-    source_role = request.form.get('source_role')
-    target_roles = request.form.getlist('target_roles')
-    sections_to_copy = request.form.getlist('sections_to_copy')
-
-    if not all([source_role, target_roles, sections_to_copy]):
-        return jsonify({"success": False, "message": "Недостаточно данных для копирования.", "category": "danger"}), 400
-
-    with get_session() as db:
-        for target_role in target_roles:
-            if 'scenarios' in sections_to_copy:
-                # --- Копирование Сценариев Онбординга ---
-                # 1. Удаляем старые вопросы и шаги у целевой роли
-                db.query(OnboardingQuestion).filter_by(role=target_role).delete()
-                db.query(OnboardingStep).filter_by(role=target_role).delete()
-
-                # 2. Копируем вопросы
-                source_questions = db.query(OnboardingQuestion).filter_by(role=source_role).order_by(
-                    OnboardingQuestion.order_index).all()
-                for q in source_questions:
-                    new_q = OnboardingQuestion(
-                        role=target_role,
-                        question_text=q.question_text,
-                        data_key=q.data_key,
-                        is_required=q.is_required,
-                        order_index=q.order_index
-                    )
-                    db.add(new_q)
-
-                # 3. Копируем шаги (включая файлы)
-                source_steps = db.query(OnboardingStep).filter_by(role=source_role).order_by(
-                    OnboardingStep.order_index).all()
-                for step in source_steps:
-                    new_step = OnboardingStep(
-                        role=target_role,
-                        message_text=step.message_text,
-                        file_type=step.file_type,
-                        order_index=step.order_index
-                    )
-                    # Копируем файл, если он есть
-                    if step.file_path and os.path.exists(step.file_path):
-                        filename = os.path.basename(step.file_path)
-                        new_filename = f"{target_role.lower().replace('/', '_')}_step_{filename.split('_step_')[-1]}"
-                        upload_folder = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], 'steps')
-                        new_filepath = os.path.join(upload_folder, new_filename)
-                        shutil.copy(step.file_path, new_filepath)
-                        new_step.file_path = new_filepath
-                    db.add(new_step)
-
-            if 'training' in sections_to_copy:
-                # --- Копирование Тренинга и Квизов ---
-                # 1. Удаляем старые квизы и информацию о тренинге
-                db.query(QuizQuestion).filter_by(role=target_role).delete()
-                db.query(RoleOnboarding).filter_by(role=target_role).delete()
-
-                # 2. Копируем квизы
-                source_quizzes = db.query(QuizQuestion).filter_by(role=source_role).order_by(
-                    QuizQuestion.order_index).all()
-                for quiz in source_quizzes:
-                    new_quiz = QuizQuestion(
-                        role=target_role,
-                        question=quiz.question,
-                        answer=quiz.answer,
-                        question_type=quiz.question_type,
-                        options=quiz.options,
-                        order_index=quiz.order_index
-                    )
-                    db.add(new_quiz)
-
-                # 3. Копируем информацию о тренинге (включая файл)
-                source_training = db.query(RoleOnboarding).filter_by(role=source_role).first()
-                if source_training:
-                    new_training = RoleOnboarding(
-                        role=target_role,
-                        text=source_training.text,
-                        file_type=source_training.file_type
-                    )
-                    if source_training.file_path and os.path.exists(source_training.file_path):
-                        filename = os.path.basename(source_training.file_path)
-                        new_filename = f"{target_role.lower().replace('/', '_')}_{filename.split('_', 1)[-1]}"
-                        new_filepath = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], new_filename)
-                        shutil.copy(source_training.file_path, new_filepath)
-                        new_training.file_path = new_filepath
-                    db.add(new_training)
-
-        db.commit()
-
-    return jsonify({
-        "success": True,
-        "message": f"Настройки из '{source_role}' скопированы в {len(target_roles)} ролей. Страница будет перезагружена.",
-        "category": "success",
-        "action": "reload"  # Говорим фронтенду перезагрузить страницу
-    })
 
 # --- ЗАПУСК ПРИЛОЖЕНИЯ ---
 if __name__ == '__main__':
