@@ -12,7 +12,7 @@ import threading
 import html
 import shutil
 import io
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
@@ -86,6 +86,43 @@ def get_config_value(key: str, default: str = "") -> str:
         db.commit()
         return default
 
+def _collect_upcoming_birthdays(employees, days_ahead: int = 7):
+    """Вернёт список сотрудников, у кого ДР в ближайшие days_ahead дней."""
+    today = date.today()
+    result = []
+    for emp in employees:
+        if not getattr(emp, "birthday", None):
+            continue
+
+        bd = emp.birthday  # date из БД
+
+        # переносим на этот год
+        try:
+            this_year_bd = bd.replace(year=today.year)
+        except ValueError:
+            # 29 февраля
+            this_year_bd = bd.replace(year=today.year, day=28)
+
+        # если уже прошло — в следующий год
+        if this_year_bd < today:
+            try:
+                this_year_bd = this_year_bd.replace(year=today.year + 1)
+            except ValueError:
+                this_year_bd = this_year_bd.replace(year=today.year + 1, day=28)
+
+        delta_days = (this_year_bd - today).days
+        if 0 <= delta_days <= days_ahead:
+            result.append({
+                "id": emp.id,
+                "name": emp.name,
+                "role": getattr(emp, "role", None),
+                "date": this_year_bd,
+                "in_days": delta_days,
+            })
+
+    # чтобы сначала были "сегодня/завтра"
+    result.sort(key=lambda x: x["in_days"])
+    return result
 def save_employee_custom_field(employee_id: int, data_key: str, data_value: str):
     """Создаёт или обновляет кастомное поле сотрудника (онбординг)."""
     if not data_key:
@@ -374,6 +411,9 @@ def index():
             .all()
         )
 
+        # <<< НОВОЕ: список ДР на 7 дней вперёд >>>
+        upcoming_birthdays = _collect_upcoming_birthdays(employees, days_ahead=7)
+
     # группируем в питоне
     questions_by_role = defaultdict(list)
     for q in all_questions:
@@ -451,8 +491,11 @@ def index():
         attendance_records=attendance_records,
         role_guides_data=role_guides_data,
         admin_groups=admin_groups,
-        custom_data_by_employee=custom_data_by_employee
+        custom_data_by_employee=custom_data_by_employee,
+        # <<< НОВОЕ: отдаём в шаблон >>>
+        upcoming_birthdays=upcoming_birthdays,
     )
+
 # --- AJAX-МАРШРУТЫ (CRUD) ---
 
 @app.route('/texts/update/<string:text_id>', methods=['POST'])

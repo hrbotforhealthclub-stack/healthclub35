@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from sqlalchemy import (
     create_engine, Column, Integer, String, Date, Boolean,
-    ForeignKey, Time, Text, DateTime, BigInteger, UniqueConstraint
+    ForeignKey, Time, Text, DateTime, BigInteger, UniqueConstraint, event
 )
 from sqlalchemy.orm import declarative_base, synonym
 from contextlib import contextmanager
@@ -13,7 +13,18 @@ from aiogram.fsm.state import StatesGroup, State
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 Base = declarative_base()
+
+# создаём engine
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+
+# 👇 ключевой кусок: заставляем каждое подключение говорить Postgres'у "я в UTF-8"
+@event.listens_for(engine, "connect")
+def set_client_encoding(dbapi_connection, connection_record):
+    cur = dbapi_connection.cursor()
+    # это понимает psycopg2 / psycopg2-binary
+    cur.execute("SET client_encoding TO 'UTF8';")
+    cur.close()
+
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 @contextmanager
@@ -191,4 +202,3 @@ class ConfigSetting(Base):
 # FSM States
 class Onboarding(StatesGroup):
     awaiting_answer = State()
-

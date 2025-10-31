@@ -174,9 +174,36 @@
             </div>
           </div>
 
+          {% if upcoming_birthdays %}
+          <div class="mb-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-4 shadow-sm flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-400 text-white text-xl">🎂</span>
+              <p class="font-semibold">Дни рождения в ближайшую неделю</p>
+            </div>
+            <div class="text-sm space-y-1">
+              {% for b in upcoming_birthdays %}
+                <p>
+                  <span class="font-medium">{{ b.name }}</span>
+                  {% if b.role %}<span class="text-gray-500"> — {{ b.role }}</span>{% endif %}
+                  • {{ b.date.strftime('%d.%m') }}
+                  {% if b.in_days == 0 %}
+                    <span class="uppercase text-red-500 font-semibold ml-2">сегодня!</span>
+                  {% elif b.in_days == 1 %}
+                    <span class="text-amber-600 ml-2">завтра</span>
+                  {% else %}
+                    <span class="text-amber-600 ml-2">через {{ b.in_days }} дн.</span>
+                  {% endif %}
+                </p>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+
           <div class="space-y-8">
               <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg">
                 <h3 class="text-xl font-semibold mb-4 text-gray-800">Активные сотрудники</h3>
+                {% set upcoming_ids = upcoming_birthdays | map(attribute='id') | list if upcoming_birthdays else [] %}
                 <input id="searchEmployees" type="text" class="w-full rounded-md border-gray-300 shadow-sm p-3 mb-4 focus:ring-primary focus:border-primary" placeholder="Поиск по активным сотрудникам…">
                 <div class="overflow-x-auto">
                   <table id="employeesTable" class="w-full text-sm text-left text-gray-600">
@@ -192,34 +219,45 @@
                         {% for emp in employees %}
                           <tr class="bg-white border-b hover:bg-gray-50" data-employee-id="{{ emp.id }}">
                             <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-  <div class="font-semibold name-cell">{{ emp.name }}</div>
-  <div class="text-xs text-gray-500 email-cell">{{ emp.email }}</div>
+  <div class="flex items-start gap-2">
+    <div>
+      <div class="font-semibold name-cell">{{ emp.name }}</div>
+      <div class="text-xs text-gray-500 email-cell">{{ emp.email }}</div>
 
-  {# === Кастомные данные из онбординга === #}
-  {% set cd = custom_data_by_employee.get(emp.id, {}) %}
-  {% if cd %}
-    <div class="mt-2 space-y-1 text-[11px] leading-tight text-gray-500">
-      {% if cd.get('name') and cd.get('name') != emp.name %}
-        <p><span class="font-semibold text-gray-700">Имя (онбординг):</span> {{ cd.get('name') }}</p>
-      {% endif %}
-      {% if cd.get('birthday') %}
-        <p><span class="font-semibold text-gray-700">ДР:</span> {{ cd.get('birthday') }}</p>
-      {% endif %}
-      {% if cd.get('contact_info') %}
-        <p><span class="font-semibold text-gray-700">Контакты:</span> {{ cd.get('contact_info') }}</p>
-      {% endif %}
-      {% if cd.get('hobby') %}
-        <p><span class="font-semibold text-gray-700">Хобби:</span> {{ cd.get('hobby') }}</p>
-      {% endif %}
-      {% if cd.get('favorite_quote') %}
-        <p><span class="font-semibold text-gray-700">Цитата:</span> “{{ cd.get('favorite_quote') }}”</p>
-      {% endif %}
-      {% if cd.get('tshirt_size') %}
-        <p><span class="font-semibold text-gray-700">Размер футболки:</span> {{ cd.get('tshirt_size') }}</p>
+      {# === Кастомные данные из онбординга === #}
+      {% set cd = custom_data_by_employee.get(emp.id, {}) %}
+      {% if cd %}
+        <div class="mt-2 space-y-1 text-[11px] leading-tight text-gray-500">
+          {% if cd.get('name') and cd.get('name') != emp.name %}
+            <p><span class="font-semibold text-gray-700">Имя (онбординг):</span> {{ cd.get('name') }}</p>
+          {% endif %}
+          {% if cd.get('birthday') %}
+            <p><span class="font-semibold text-gray-700">ДР:</span> {{ cd.get('birthday') }}</p>
+          {% endif %}
+          {% if cd.get('contact_info') %}
+            <p><span class="font-semibold text-gray-700">Контакты:</span> {{ cd.get('contact_info') }}</p>
+          {% endif %}
+          {% if cd.get('hobby') %}
+            <p><span class="font-semibold text-gray-700">Хобби:</span> {{ cd.get('hobby') }}</p>
+          {% endif %}
+          {% if cd.get('favorite_quote') %}
+            <p><span class="font-semibold text-gray-700">Цитата:</span> “{{ cd.get('favorite_quote') }}”</p>
+          {% endif %}
+          {% if cd.get('tshirt_size') %}
+            <p><span class="font-semibold text-gray-700">Размер футболки:</span> {{ cd.get('tshirt_size') }}</p>
+          {% endif %}
+        </div>
       {% endif %}
     </div>
-  {% endif %}
+
+    {% if emp.id in upcoming_ids %}
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium mt-0.5">
+        🎂 скоро ДР
+      </span>
+    {% endif %}
+  </div>
 </td>
+
 
                             <td class="px-6 py-4 role-cell">
                               <span class="px-2 py-1 bg-indigo-100 text-primary font-medium rounded-full text-xs">
