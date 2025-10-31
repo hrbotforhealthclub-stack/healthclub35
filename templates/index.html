@@ -192,9 +192,35 @@
                         {% for emp in employees %}
                           <tr class="bg-white border-b hover:bg-gray-50" data-employee-id="{{ emp.id }}">
                             <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                              <div class="font-semibold name-cell">{{ emp.name }}</div>
-                              <div class="text-xs text-gray-500 email-cell">{{ emp.email }}</div>
-                            </td>
+  <div class="font-semibold name-cell">{{ emp.name }}</div>
+  <div class="text-xs text-gray-500 email-cell">{{ emp.email }}</div>
+
+  {# === Кастомные данные из онбординга === #}
+  {% set cd = custom_data_by_employee.get(emp.id, {}) %}
+  {% if cd %}
+    <div class="mt-2 space-y-1 text-[11px] leading-tight text-gray-500">
+      {% if cd.get('name') and cd.get('name') != emp.name %}
+        <p><span class="font-semibold text-gray-700">Имя (онбординг):</span> {{ cd.get('name') }}</p>
+      {% endif %}
+      {% if cd.get('birthday') %}
+        <p><span class="font-semibold text-gray-700">ДР:</span> {{ cd.get('birthday') }}</p>
+      {% endif %}
+      {% if cd.get('contact_info') %}
+        <p><span class="font-semibold text-gray-700">Контакты:</span> {{ cd.get('contact_info') }}</p>
+      {% endif %}
+      {% if cd.get('hobby') %}
+        <p><span class="font-semibold text-gray-700">Хобби:</span> {{ cd.get('hobby') }}</p>
+      {% endif %}
+      {% if cd.get('favorite_quote') %}
+        <p><span class="font-semibold text-gray-700">Цитата:</span> “{{ cd.get('favorite_quote') }}”</p>
+      {% endif %}
+      {% if cd.get('tshirt_size') %}
+        <p><span class="font-semibold text-gray-700">Размер футболки:</span> {{ cd.get('tshirt_size') }}</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</td>
+
                             <td class="px-6 py-4 role-cell">
                               <span class="px-2 py-1 bg-indigo-100 text-primary font-medium rounded-full text-xs">
                                 {{ emp.role }}
@@ -862,6 +888,31 @@
       <div id="actions-employee-{{ emp.id }}" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-50 items-center justify-center z-50">
           <div class="modal-box bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm transform scale-95">
               <h3 class="font-semibold text-lg mb-4">Действия для {{ emp.name }}</h3>
+
+              {% set cd = custom_data_by_employee.get(emp.id, {}) %}
+{% if cd %}
+  <div class="mb-4 p-3 rounded-lg bg-gray-50 border text-sm space-y-1">
+    <p class="font-semibold text-gray-700 mb-1">Данные из онбординга:</p>
+    {% if cd.get('name') and cd.get('name') != emp.name %}
+      <p><span class="text-gray-500">Имя:</span> {{ cd.get('name') }}</p>
+    {% endif %}
+    {% if cd.get('birthday') %}
+      <p><span class="text-gray-500">Дата рождения:</span> {{ cd.get('birthday') }}</p>
+    {% endif %}
+    {% if cd.get('contact_info') %}
+      <p><span class="text-gray-500">Контакты:</span> {{ cd.get('contact_info') }}</p>
+    {% endif %}
+    {% if cd.get('hobby') %}
+      <p><span class="text-gray-500">Хобби:</span> {{ cd.get('hobby') }}</p>
+    {% endif %}
+    {% if cd.get('favorite_quote') %}
+      <p><span class="text-gray-500">Цитата:</span> “{{ cd.get('favorite_quote') }}”</p>
+    {% endif %}
+    {% if cd.get('tshirt_size') %}
+      <p><span class="text-gray-500">Размер футболки:</span> {{ cd.get('tshirt_size') }}</p>
+    {% endif %}
+  </div>
+{% endif %}
               <div class="space-y-3">
                   <form action="{{ url_for('reset_telegram', emp_id=emp.id) }}" method="POST" data-action="simple-action" data-confirm="Сбросить привязку Telegram для {{ emp.name }}?">
                       <button type="submit" class="w-full text-left p-3 rounded-lg hover:bg-yellow-50 text-yellow-700 transition"><i class="bi bi-unlock-fill mr-3"></i>Сбросить Telegram</button>

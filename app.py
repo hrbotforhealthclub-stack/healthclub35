@@ -2,6 +2,7 @@
 from dotenv import load_dotenv
 
 load_dotenv()
+from collections import defaultdict
 
 # 2. Стандартные и сторонние библиотеки
 import os
@@ -66,6 +67,10 @@ ONBOARDING_DATA_KEYS = {
 
 
 # --- ХЕЛПЕРЫ ДЛЯ КОНФИГУРАЦИИ В БД ---
+
+# простой кэш в памяти процесса
+CONFIG_CACHE: dict[str, str] = {}
+
 def get_config_value(key: str, default: str = "") -> str:
     """Получает значение настройки из БД. Создает с default, если не найдено."""
     with get_session() as db:
@@ -81,6 +86,36 @@ def get_config_value(key: str, default: str = "") -> str:
         db.commit()
         return default
 
+def save_employee_custom_field(employee_id: int, data_key: str, data_value: str):
+    """Создаёт или обновляет кастомное поле сотрудника (онбординг)."""
+    if not data_key:
+        return
+    with get_session() as db:
+        obj = (
+            db.query(EmployeeCustomData)
+              .filter_by(employee_id=employee_id, data_key=data_key)
+              .first()
+        )
+        if obj:
+            obj.data_value = data_value
+        else:
+            obj = EmployeeCustomData(
+                employee_id=employee_id,
+                data_key=data_key,
+                data_value=data_value
+            )
+            db.add(obj)
+        db.commit()
+
+
+def get_config_cached(key: str, default: str = "") -> str:
+    """Быстрый вариант: сначала смотрим в память, потом в БД."""
+    if key in CONFIG_CACHE:
+        return CONFIG_CACHE[key]
+    val = get_config_value(key, default)
+    CONFIG_CACHE[key] = val
+    return val
+
 
 def set_config_value(key: str, value: str):
     """Устанавливает значение настройки в БД."""
@@ -92,6 +127,8 @@ def set_config_value(key: str, value: str):
             setting = ConfigSetting(key=key, value=value)
             db.add(setting)
         db.commit()
+    # обновляем кэш, чтобы notify_common_chat видел актуальные чаты
+    CONFIG_CACHE[key] = value
 
 
 # --- ОБЩИЕ ХЕЛПЕРЫ И ФИЛЬТРЫ ---
@@ -119,11 +156,13 @@ def fmt_dt(value, fmt='%Y-%m-%d %H:%M'):
 
 
 def _run_async_bg(coro):
-    """Запускает асинхронную задачу в фоновом потоке."""
-    try:
-        asyncio.run(coro)
-    except RuntimeError:
-        threading.Thread(target=lambda: asyncio.run(coro), daemon=True).start()
+    """Запуск корутины в отдельном event loop в фоне, всегда стабильно."""
+    def runner():
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        new_loop.run_until_complete(coro)
+
+    threading.Thread(target=runner, daemon=True).start()
 
 
 @app.template_filter('fmt_date')
@@ -156,7 +195,7 @@ def login_required(view_func):
 
 @app.before_request
 def require_login_for_all():
-    open_paths = {"/login", "/logout"}
+    open_paths = {"/login", "/logout", "/landing"}
     if request.path.startswith("/static"):
         return
     if request.path in open_paths:
@@ -206,7 +245,7 @@ def _chat_candidates(raw: str | int) -> list:
 
 
 async def _send_tg_message(text: str, chat_id: str):
-    token = get_config_value("BOT_TOKEN")
+    token = get_config_cached("BOT_TOKEN")
     if not token:
         print("[tg] BOT_TOKEN missing in DB")
         return False, "BOT_TOKEN missing"
@@ -228,7 +267,8 @@ async def _send_tg_message(text: str, chat_id: str):
 
 def notify_common_chat(text: str):
     async def _send_to_all_active_chats():
-        active_chats_str = get_config_value("ACTIVE_CHAT_IDS", "")
+        active_chats_str = get_config_cached("ACTIVE_CHAT_IDS", "")
+
         if not active_chats_str:
             print("[tg] ACTIVE_CHAT_IDS is not set in DB")
             return
@@ -264,88 +304,155 @@ async def _list_verified_admin_groups_async(rows):
         await bot.session.close()
 
 
-def list_verified_admin_groups():
+def list_admin_groups_from_db_only():
+    """Быстрый вариант: читаем только то, что уже есть в БД, без запросов к Telegram."""
     with get_session() as db:
         rows = db.query(GroupChat).order_by(GroupChat.name).all()
-    try:
-        verified = asyncio.run(_list_verified_admin_groups_async(rows))
-    except RuntimeError:
-        return [{"chat_id": r.chat_id, "name": r.name} for r in rows]
-
-    with get_session() as db:
-        for v in verified:
-            if v["_db_id"] is None: continue
-            obj = db.get(GroupChat, v["_db_id"])
-            if obj and (obj.chat_id != v["chat_id"] or obj.name != v["name"]):
-                obj.chat_id = v["chat_id"]
-                obj.name = v["name"]
-                db.add(obj)
-        db.commit()
-    return [{"chat_id": v["chat_id"], "name": v["name"]} for v in verified]
-
-
-# --- ОСНОВНЫЕ МАРШРУТЫ ---
+        return [
+            {
+                "chat_id": r.chat_id,
+                "name": (r.name or getattr(r, "title", None) or r.username or r.chat_id)
+            }
+            for r in rows
+        ]
 @app.route('/')
 def index():
     # УЛУЧШЕНИЕ: Проверяем токен при загрузке главной страницы
-    bot_token = get_config_value("BOT_TOKEN")
+    bot_token = get_config_cached("BOT_TOKEN")
     if not bot_token:
         flash(
             "Внимание: Токен бота не задан. Пожалуйста, укажите его в разделе 'Настройки', чтобы все функции заработали.",
-            "warning")
+            "warning"
+        )
 
     with get_session() as db:
         employees = db.query(Employee).filter_by(is_active=True).order_by(Employee.name).all()
         archived_employees = db.query(ArchivedEmployee).order_by(ArchivedEmployee.dismissal_date.desc()).all()
         events = db.query(Event).order_by(Event.event_date.desc()).all()
-        ideas = db.query(Idea, Employee.name).outerjoin(Employee, Idea.employee_id == Employee.id).order_by(
-            Idea.submission_date.desc()).all()
+        ideas = (
+            db.query(Idea, Employee.name)
+              .outerjoin(Employee, Idea.employee_id == Employee.id)
+              .order_by(Idea.submission_date.desc())
+              .all()
+        )
         topics = db.query(Topic).order_by(Topic.title).all()
         roles = db.query(Role).order_by(Role.name).all()
         bot_texts = db.query(BotText).order_by(BotText.id).all()
+        attendance_records = (
+            db.query(Attendance, Employee.name)
+              .join(Employee, Attendance.employee_id == Employee.id)
+              .order_by(Attendance.date.desc(), Attendance.arrival_time.desc())
+              .all()
+        )
 
-        onboarding_constructor_data = {}
-        for role in roles:
-            questions = db.query(OnboardingQuestion).filter_by(role=role.name).order_by(
-                OnboardingQuestion.order_index).all()
-            steps = db.query(OnboardingStep).filter_by(role=role.name).order_by(OnboardingStep.order_index).all()
-            onboarding_constructor_data[role.name] = {"questions": questions, "steps": steps}
+        # ВАЖНО: тащим всё разом, а не по роли
+        all_questions = (
+            db.query(OnboardingQuestion)
+              .order_by(OnboardingQuestion.role, OnboardingQuestion.order_index)
+              .all()
+        )
+        all_steps = (
+            db.query(OnboardingStep)
+              .order_by(OnboardingStep.role, OnboardingStep.order_index)
+              .all()
+        )
+        all_guides = (
+            db.query(RoleGuide)
+              .order_by(RoleGuide.role, RoleGuide.order_index)
+              .all()
+        )
+        all_custom_data = (
+            db.query(EmployeeCustomData)
+            .filter(EmployeeCustomData.employee_id.isnot(None))
+            .all()
+        )
 
-        role_guides_data = {}
-        for role in roles:
-            guides = db.query(RoleGuide).filter_by(role=role.name).order_by(RoleGuide.order_index).all()
-            role_guides_data[role.name] = guides
+        all_onboarding_infos = db.query(RoleOnboarding).all()
+        all_quizzes = (
+            db.query(QuizQuestion)
+            .order_by(QuizQuestion.role, QuizQuestion.order_index)
+            .all()
+        )
 
-        attendance_records = db.query(Attendance, Employee.name).join(Employee,
-                                                                      Attendance.employee_id == Employee.id).order_by(
-            Attendance.date.desc(), Attendance.arrival_time.desc()).all()
+    # группируем в питоне
+    questions_by_role = defaultdict(list)
+    for q in all_questions:
+        questions_by_role[q.role].append(q)
 
-        onboarding_data = {}
-        for role in roles:
-            onboarding_info = db.query(RoleOnboarding).filter_by(role=role.name).first()
-            quiz_questions = db.query(QuizQuestion).filter_by(role=role.name).order_by(QuizQuestion.order_index).all()
-            onboarding_data[role.name] = {"info": onboarding_info, "quizzes": quiz_questions}
+    steps_by_role = defaultdict(list)
+    for s in all_steps:
+        steps_by_role[s.role].append(s)
 
-        admin_groups = list_verified_admin_groups()
+    guides_by_role = defaultdict(list)
+    for g in all_guides:
+        guides_by_role[g.role].append(g)
 
-        config = {
-            "BOT_TOKEN": bot_token,
-            "ACTIVE_CHAT_IDS": [c.strip() for c in (get_config_value("ACTIVE_CHAT_IDS", "") or "").split(',') if
-                                c.strip()],
-            "OFFICE_LAT": get_config_value("OFFICE_LAT", ""),
-            "OFFICE_LON": get_config_value("OFFICE_LON", ""),
-            "OFFICE_RADIUS_METERS": get_config_value("OFFICE_RADIUS_METERS", "")
+    onboarding_info_by_role = {r.role: r for r in all_onboarding_infos}
+
+    quizzes_by_role = defaultdict(list)
+    for q in all_quizzes:
+        quizzes_by_role[q.role].append(q)
+
+    custom_data_by_employee = defaultdict(dict)
+    for cd in all_custom_data:
+        if not cd:
+            continue
+        if not cd.employee_id:
+            continue
+        if not cd.data_key:
+            continue
+        custom_data_by_employee[cd.employee_id][cd.data_key] = cd.data_value or ""
+
+    onboarding_constructor_data = {}
+    onboarding_data = {}
+    role_guides_data = {}
+
+    for role in roles:
+        rname = role.name
+        onboarding_constructor_data[rname] = {
+            "questions": questions_by_role.get(rname, []),
+            "steps": steps_by_role.get(rname, []),
         }
+        onboarding_data[rname] = {
+            "info": onboarding_info_by_role.get(rname),
+            "quizzes": quizzes_by_role.get(rname, []),
+        }
+        role_guides_data[rname] = guides_by_role.get(rname, [])
 
-    return render_template('index.html', employees=employees, archived_employees=archived_employees,
-                           events=events, ideas=ideas, topics=topics,
-                           onboarding_data=onboarding_data, roles=roles, config=config, bot_texts=bot_texts,
-                           onboarding_constructor_data=onboarding_constructor_data,
-                           onboarding_data_keys=ONBOARDING_DATA_KEYS,
-                           attendance_records=attendance_records, role_guides_data=role_guides_data,
-                           admin_groups=admin_groups)
+    # конфиг — из кэша, чтобы не бить БД 4 раза
+    config = {
+        "BOT_TOKEN": bot_token,
+        "ACTIVE_CHAT_IDS": [
+            c.strip()
+            for c in (get_config_cached("ACTIVE_CHAT_IDS", "") or "").split(',')
+            if c.strip()
+        ],
+        "OFFICE_LAT": get_config_cached("OFFICE_LAT", ""),
+        "OFFICE_LON": get_config_cached("OFFICE_LON", ""),
+        "OFFICE_RADIUS_METERS": get_config_cached("OFFICE_RADIUS_METERS", "")
+    }
 
+    # чаты — быстрый вариант
+    admin_groups = list_admin_groups_from_db_only()
 
+    return render_template(
+        'index.html',
+        employees=employees,
+        archived_employees=archived_employees,
+        events=events,
+        ideas=ideas,
+        topics=topics,
+        onboarding_data=onboarding_data,
+        roles=roles,
+        config=config,
+        bot_texts=bot_texts,
+        onboarding_constructor_data=onboarding_constructor_data,
+        onboarding_data_keys=ONBOARDING_DATA_KEYS,
+        attendance_records=attendance_records,
+        role_guides_data=role_guides_data,
+        admin_groups=admin_groups,
+        custom_data_by_employee=custom_data_by_employee
+    )
 # --- AJAX-МАРШРУТЫ (CRUD) ---
 
 @app.route('/texts/update/<string:text_id>', methods=['POST'])
@@ -450,6 +557,50 @@ def delete_onboarding_step(step_id):
             db.commit()
             return jsonify({"success": True, "message": "Шаг знакомства удален.", "category": "warning"})
     return jsonify({"success": False, "message": "Шаг не найден.", "category": "danger"}), 404
+
+@app.post("/api/onboarding/save_custom_data")
+def api_onboarding_save_custom_data():
+    if not session.get("is_admin") and request.headers.get("X-Internal-Token") != os.getenv("INTERNAL_BOT_TOKEN", ""):
+        # если хочешь, можешь вообще убрать эту проверку
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    employee_id = payload.get("employee_id")
+    data = payload.get("data") or {}
+
+    if not employee_id or not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "bad payload"}), 400
+
+    # сохраняем все поля, которые пришли
+    for key, value in data.items():
+        if value is None:
+            value = ""
+        save_employee_custom_field(employee_id, key, str(value))
+
+        # спец-логика: некоторые ключи должны обновлять основной профиль
+        if key == "name" and value:
+            with get_session() as db:
+                emp = db.get(Employee, employee_id)
+                if emp:
+                    emp.name = value
+                    db.commit()
+        if key == "birthday" and value:
+            # принимаем и 2025-10-31 и 31.10.2025
+            parsed = None
+            for fmt in ("%Y-%m-%d", "%d.%m.%Y"):
+                try:
+                    parsed = datetime.strptime(value, fmt).date()
+                    break
+                except Exception:
+                    continue
+            if parsed:
+                with get_session() as db:
+                    emp = db.get(Employee, employee_id)
+                    if emp:
+                        emp.birthday = parsed
+                        db.commit()
+
+    return jsonify({"ok": True})
 
 
 @app.route('/onboarding/step/reorder', methods=['POST'])
@@ -569,16 +720,47 @@ def edit_employee(emp_id):
         emp = db.get(Employee, emp_id)
         if not emp:
             return jsonify({"success": False, "message": "Сотрудник не найден.", "category": "danger"}), 404
+
+        old_role = emp.role  # что было до изменения
+
         emp.name = request.form.get('name', emp.name)
         emp.email = request.form.get('email', emp.email)
         emp.role = request.form.get('role', emp.role)
         birthday_str = request.form.get('birthday')
         emp.birthday = datetime.strptime(birthday_str, '%Y-%m-%d').date() if birthday_str else None
         db.commit()
-        return jsonify({
-            "success": True, "message": f"Данные сотрудника {emp.name} обновлены.", "category": "success",
-            "employee": {"id": emp.id, "name": emp.name, "email": emp.email, "role": emp.role}
-        })
+
+    # вне сессии: если роль реально изменилась — шлём в чаты
+    if old_role != emp.role:
+        raw_tpl = get_text(
+            'employee_role_changed_announcement',
+            '⬆️ {name} был(а) повышен(а): {old} → {new}'
+        )
+
+        # делаем словарь со ВСЕМИ часто встречающимися ключами
+        data = {
+            "name": html.escape(emp.name or emp.email or "Сотрудник"),
+            "old": html.escape(old_role or "—"),
+            "new": html.escape(emp.role or "—"),
+            "old_role": html.escape(old_role or "—"),
+            "new_role": html.escape(emp.role or "—"),
+        }
+
+        # безопасное форматирование: если в шаблоне есть левый {xxx}, он станет пустым
+        class SafeDict(dict):
+            def __missing__(self, key):
+                return ""
+
+        msg = raw_tpl.format_map(SafeDict(data))
+        notify_common_chat(msg)
+
+    return jsonify({
+        "success": True,
+        "message": f"Данные сотрудника {emp.name} обновлены.",
+        "category": "success",
+        "employee": {"id": emp.id, "name": emp.name, "email": emp.email, "role": emp.role}
+    })
+
 
 
 @app.route('/employee/dismiss/<int:emp_id>', methods=['POST'])
