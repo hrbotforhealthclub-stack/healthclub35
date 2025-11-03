@@ -453,17 +453,19 @@
                                       <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm shadow transition">Сохранить порядок</button>
                                     </form>
                                     <form action="{{ url_for('add_onboarding_step', role=role.name) }}" method="POST" enctype="multipart/form-data" class="border p-4 rounded-lg mt-4 space-y-3" data-action="add-onboarding-step" data-role="{{ role.name }}">
-                                        <h6 class="font-semibold">Добавить новый шаг</h6>
-                                        <textarea name="message_text" placeholder="Текст сообщения (можно оставить пустым)" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary"></textarea>
-                                        <input type="file" name="file" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100">
-                                       <select name="file_type" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
-                                            <option value="video_note">Видео-кружок (конвертация)</option>
-                                            <option value="video">Обычное видео</option>
-                                            <option value="photo">Фото</option>
-                                            <option value="document">Документ</option>
-                                        </select>
-                                        <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white py-2 rounded-lg shadow transition">Добавить шаг</button>
-                                    </form>
+    <h6 class="font-semibold">Добавить новый шаг</h6>
+    <textarea name="message_text" placeholder="Текст сообщения (можно оставить пустым)" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary"></textarea>
+    <input type="file" name="file" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100">
+    <p class="text-xs text-gray-400 hidden" data-upload-status>Файл выбран, идёт загрузка…</p>
+   <select name="file_type" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
+        <option value="video_note">Видео-кружок (конвертация)</option>
+        <option value="video">Обычное видео</option>
+        <option value="photo">Фото</option>
+        <option value="document">Документ</option>
+    </select>
+    <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white py-2 rounded-lg shadow transition">Добавить шаг</button>
+</form>
+
                                 </div>
                             </div>
                         </div>
@@ -502,13 +504,15 @@
                             </div>
 
                             <form action="{{ url_for('add_guide', role=role.name) }}" method="POST" enctype="multipart/form-data" class="border p-4 rounded-lg mt-4 space-y-3" data-action="add-guide" data-role="{{ role.name }}">
-                                <h6 class="font-semibold">Добавить новый регламент</h6>
-                                <input name="title" placeholder="Название регламента" required class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
-                                <textarea name="content" placeholder="Краткое описание (необязательно)" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary"></textarea>
-                                <label class="block text-sm font-medium">Прикрепить файл (необязательно)</label>
-                                <input type="file" name="file" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100">
-                                <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white py-2 rounded-lg shadow transition">Добавить</button>
-                            </form>
+    <h6 class="font-semibold">Добавить новый регламент</h6>
+    <input name="title" placeholder="Название регламента" required class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">
+    <textarea name="content" placeholder="Краткое описание (необязательно)" class="w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary"></textarea>
+    <label class="block text-sm font-medium">Прикрепить файл (необязательно)</label>
+    <input type="file" name="file" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100">
+    <p class="text-xs text-gray-400 hidden" data-upload-status>Файл выбран, идёт загрузка…</p>
+    <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white py-2 rounded-lg shadow transition">Добавить</button>
+</form>
+
                         </div>
                     </div>
                     {% endfor %}
@@ -540,27 +544,29 @@
                       <h5 class="font-semibold text-md text-gray-700"><i class="bi bi-book mr-2"></i>Материалы для тренинга</h5>
                       {% set onboarding_info = onboarding_data[role.name].info %}
                       <form action="{{ url_for('update_onboarding', role=role.name) }}" method="POST" enctype="multipart/form-data" class="space-y-4" data-action="update-onboarding">
-                        <div>
-                          <label class="block text-sm font-medium">Текст приветствия/инструкции</label>
-                          <textarea name="text" rows="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-primary focus:border-primary">{{ onboarding_info.text if onboarding_info }}</textarea>
-                        </div>
-                        <div>
-                          <label class="block text-sm font-medium">Тип файла</label>
-                          <select name="file_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-primary focus:border-primary">
-                            <option value="document" {% if onboarding_info and onboarding_info.file_type=='document' %}selected{% endif %}>Документ</option>
-                            <option value="video" {% if onboarding_info and onboarding_info.file_type=='video' %}selected{% endif %}>Видео</option>
-                            <option value="video_note" {% if onboarding_info and onboarding_info.file_type=='video_note' %}selected{% endif %}>Видео-кружочек</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label class="block text-sm font-medium">Прикрепить/Заменить файл</label>
-                          <input type="file" name="file" class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100" />
-                          {% if onboarding_info and onboarding_info.file_path %}
-                            <small class="text-xs text-gray-500 current-file">Текущий: {{ onboarding_info.file_path }}</small>
-                          {% endif %}
-                        </div>
-                        <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition">Сохранить тренинг</button>
-                      </form>
+    <div>
+      <label class="block text-sm font-medium">Текст приветствия/инструкции</label>
+      <textarea name="text" rows="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-primary focus:border-primary">{{ onboarding_info.text if onboarding_info }}</textarea>
+    </div>
+    <div>
+      <label class="block text-sm font-medium">Тип файла</label>
+      <select name="file_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-primary focus:border-primary">
+        <option value="document" {% if onboarding_info and onboarding_info.file_type=='document' %}selected{% endif %}>Документ</option>
+        <option value="video" {% if onboarding_info and onboarding_info.file_type=='video' %}selected{% endif %}>Видео</option>
+        <option value="video_note" {% if onboarding_info and onboarding_info.file_type=='video_note' %}selected{% endif %}>Видео-кружочек</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium">Прикрепить/Заменить файл</label>
+      <input type="file" name="file" class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100" />
+      <p class="text-xs text-gray-400 hidden" data-upload-status>Файл выбран, идёт загрузка…</p>
+      {% if onboarding_info and onboarding_info.file_path %}
+        <small class="text-xs text-gray-500 current-file">Текущий: {{ onboarding_info.file_path }}</small>
+      {% endif %}
+    </div>
+    <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition">Сохранить тренинг</button>
+</form>
+
                     </div>
                     <div class="space-y-4 flex flex-col">
                       <h5 class="font-semibold text-md text-gray-700"><i class="bi bi-patch-question mr-2"></i>Вопросы для квиза</h5>
@@ -1006,24 +1012,26 @@
           <h3 class="text-2xl font-semibold">Новая тема в Базе знаний</h3>
           <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
         </div>
-        <form action="{{ url_for('add_topic') }}" method="POST" enctype="multipart/form-data" data-action="reload" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium">Заголовок</label>
-            <input type="text" name="title" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium">Содержание</label>
-            <textarea name="content" rows="5" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary"></textarea>
-          </div>
-          <div>
-            <label class="block text-sm font-medium">Изображение (необязательно)</label>
-            <input type="file" name="image" class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100" accept="image/*" />
-          </div>
-          <div class="flex justify-end space-x-3 pt-4">
-              <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
-              <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg shadow transition">Создать тему</button>
-          </div>
-        </form>
+        <<form action="{{ url_for('add_topic') }}" method="POST" enctype="multipart/form-data" data-action="reload" class="space-y-4">
+  <div>
+    <label class="block text-sm font-medium">Заголовок</label>
+    <input type="text" name="title" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
+  </div>
+  <div>
+    <label class="block text-sm font-medium">Содержание</label>
+    <textarea name="content" rows="5" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary"></textarea>
+  </div>
+  <div>
+    <label class="block text-sm font-medium">Изображение (необязательно)</label>
+    <input type="file" name="image" class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100" accept="image/*" />
+    <p class="text-xs text-gray-400 hidden" data-upload-status>Файл выбран, идёт загрузка…</p>
+  </div>
+  <div class="flex justify-end space-x-3 pt-4">
+      <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
+      <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg shadow transition">Создать тему</button>
+  </div>
+</form>
+
     </div>
   </div>
 
@@ -1034,27 +1042,29 @@
       <h3 class="text-2xl font-semibold">Редактировать тему</h3>
       <button data-modal-close class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
     </div>
-    <form action="{{ url_for('edit_topic', topic_id=topic.id) }}" method="POST" data-action="reload" enctype="multipart/form-data" class="space-y-4">
-      <div>
-        <label class="block text-sm font-medium">Заголовок</label>
-        <input type="text" name="title" value="{{ topic.title }}" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
-      </div>
-      <div>
-        <label class="block text-sm font-medium">Содержание</label>
-        <textarea name="content" rows="5" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">{{ topic.content }}</textarea>
-      </div>
-      <div>
-        <label class="block text-sm font-medium">Заменить изображение (необязательно)</label>
-        <input type="file" name="image" class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100" accept="image/*" />
-        {% if topic.image_path %}
-          <small class="text-xs text-gray-500">Текущее: {{ topic.image_path }}</small>
-        {% endif %}
-      </div>
-      <div class="flex justify-end space-x-3 pt-4">
-        <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
-        <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg shadow transition">Сохранить</button>
-      </div>
-    </form>
+   <form action="{{ url_for('edit_topic', topic_id=topic.id) }}" method="POST" data-action="reload" enctype="multipart/form-data" class="space-y-4">
+  <div>
+    <label class="block text-sm font-medium">Заголовок</label>
+    <input type="text" name="title" value="{{ topic.title }}" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary" />
+  </div>
+  <div>
+    <label class="block text-sm font-medium">Содержание</label>
+    <textarea name="content" rows="5" required class="mt-1 block w-full rounded-md border-gray-300 p-2 focus:ring-primary focus:border-primary">{{ topic.content }}</textarea>
+  </div>
+  <div>
+    <label class="block text-sm font-medium">Заменить изображение (необязательно)</label>
+    <input type="file" name="image" class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100" accept="image/*" />
+    <p class="text-xs text-gray-400 hidden" data-upload-status>Файл выбран, идёт загрузка…</p>
+    {% if topic.image_path %}
+      <small class="text-xs text-gray-500">Текущее: {{ topic.image_path }}</small>
+    {% endif %}
+  </div>
+  <div class="flex justify-end space-x-3 pt-4">
+    <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
+    <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg shadow transition">Сохранить</button>
+  </div>
+</form>
+
   </div>
 </div>
 {% endfor %}
@@ -1426,87 +1436,110 @@
 
     // ======================= AJAX FORM HANDLER =======================
     document.body.addEventListener('submit', async function(e) {
-        const form = e.target;
-        if (!form.matches('form[data-action]')) return;
+    const form = e.target;
+    if (!form.matches('form[data-action]')) return;
 
-        e.preventDefault();
+    e.preventDefault();
 
-        const confirmText = form.dataset.confirm;
-        if (confirmText && !confirm(confirmText)) return;
+    const confirmText = form.dataset.confirm;
+    if (confirmText && !confirm(confirmText)) return;
 
-        const submitButton = e.submitter || form.querySelector('button[type="submit"], [type="submit"]');
-        let originalBtnHTML;
+    const submitButton = e.submitter || form.querySelector('button[type="submit"], [type="submit"]');
+    let originalBtnHTML;
 
-        if (submitButton) {
-            submitButton.disabled = true;
-            originalBtnHTML = submitButton.innerHTML;
-            submitButton.innerHTML = `<span class="loader"></span> Выполняется...`;
-        }
+    const uploadStatusEl = form.querySelector('[data-upload-status]');
+    const hasFileInput = form.querySelector('input[type="file"]');
+    const hasFileToSend = hasFileInput && hasFileInput.files && hasFileInput.files.length > 0;
 
-        try {
-            // Специальная обработка для JSON-запросов (сортировка)
-            if (form.dataset.action.startsWith('reorder')) {
-                const role = form.dataset.role;
-                const listId = {
-                  'reorder-quiz': `quiz-list-${role}`,
-                  'reorder-onboarding-question': `onboarding-questions-list-${role}`,
-                  'reorder-onboarding-step': `onboarding-steps-list-${role}`
-                }[form.dataset.action];
+    if (uploadStatusEl && hasFileToSend) {
+        uploadStatusEl.classList.remove('hidden');
+        uploadStatusEl.textContent = 'Файл выбран, идёт загрузка…';
+    }
 
-                const listEl = document.getElementById(listId);
-                const ids = Array.from(listEl.children).map(div => div.dataset.id);
+    if (submitButton) {
+        submitButton.disabled = true;
+        originalBtnHTML = submitButton.innerHTML;
+        submitButton.innerHTML = `<span class="loader"></span> Выполняется...`;
+    }
 
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ordered_ids: ids})
-                });
-                const data = await response.json();
-                 if (response.ok) {
-                    window.showFlash('Порядок сохранен!', 'success');
-                } else {
-                    window.showFlash(data.message || 'Ошибка сохранения порядка', 'danger');
-                }
+    try {
+        // Специальная обработка для JSON-запросов (сортировка)
+        if (form.dataset.action.startsWith('reorder')) {
+            const role = form.dataset.role;
+            const listId = {
+              'reorder-quiz': `quiz-list-${role}`,
+              'reorder-onboarding-question': `onboarding-questions-list-${role}`,
+              'reorder-onboarding-step': `onboarding-steps-list-${role}`
+            }[form.dataset.action];
 
-            } else { // Стандартная обработка FormData
-                const formData = new FormData(form);
-                const response = await fetch(form.action, {
-                    method: form.method.toUpperCase(),
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                const data = response.status !== 204 ? await response.json() : {};
+            const listEl = document.getElementById(listId);
+            const ids = Array.from(listEl.children).map(div => div.dataset.id);
 
-                if (data.message) {
-                    window.showFlash(data.message, data.category);
-                }
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ordered_ids: ids})
+            });
+            const data = await response.json();
+             if (response.ok) {
+                window.showFlash('Порядок сохранен!', 'success');
+            } else {
+                window.showFlash(data.message || 'Ошибка сохранения порядка', 'danger');
+            }
 
-                if (response.ok) {
-                    if (data.action === 'reload' || form.dataset.action === 'reload') {
-                        const modal = form.closest('.modal');
-                        if (modal) {
-                            window.closeModal(modal);
-                            setTimeout(() => window.location.reload(), 300);
-                        } else {
-                           window.location.reload();
-                        }
+        } else { // Стандартная обработка FormData
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: form.method.toUpperCase(),
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            const data = response.status !== 204 ? await response.json() : {};
+
+            if (data.message) {
+                window.showFlash(data.message, data.category);
+            }
+
+            if (response.ok) {
+                if (data.action === 'reload' || form.dataset.action === 'reload') {
+                    const modal = form.closest('.modal');
+                    if (modal) {
+                        window.closeModal(modal);
+                        setTimeout(() => window.location.reload(), 300);
                     } else {
-                        handleActionSuccess(form.dataset.action, data, form);
+                       window.location.reload();
                     }
-                } else if (!data.message) {
-                    window.showFlash('Ошибка выполнения операции.', 'danger');
+                } else {
+                    handleActionSuccess(form.dataset.action, data, form);
+                }
+
+                if (uploadStatusEl && hasFileToSend) {
+                    uploadStatusEl.textContent = 'Файл загружен ✅';
+                    uploadStatusEl.classList.remove('hidden');
+                }
+            } else if (!data.message) {
+                window.showFlash('Ошибка выполнения операции.', 'danger');
+                if (uploadStatusEl && hasFileToSend) {
+                    uploadStatusEl.textContent = 'Ошибка загрузки файла ❌';
+                    uploadStatusEl.classList.remove('hidden');
                 }
             }
-        } catch (error) {
-            console.error('Fetch error:', error);
-            window.showFlash('Произошла сетевая ошибка. Попробуйте снова.', 'danger');
-        } finally {
-            if (submitButton) {
-                if (originalBtnHTML != null) submitButton.innerHTML = originalBtnHTML;
-                submitButton.disabled = false;
-            }
         }
-    });
+    } catch (error) {
+        console.error('Fetch error:', error);
+        window.showFlash('Произошла сетевая ошибка. Попробуйте снова.', 'danger');
+        if (uploadStatusEl && hasFileToSend) {
+            uploadStatusEl.textContent = 'Ошибка загрузки файла ❌';
+            uploadStatusEl.classList.remove('hidden');
+        }
+    } finally {
+        if (submitButton) {
+            if (originalBtnHTML != null) submitButton.innerHTML = originalBtnHTML;
+            submitButton.disabled = false;
+        }
+    }
+});
+
 
     function handleActionSuccess(action, data, form) {
         const modal = form.closest('.modal');
@@ -1661,29 +1694,37 @@
                 break;
             }
             case 'add-onboarding-step': {
-                const role = form.dataset.role;
-                const list = document.getElementById(`onboarding-steps-list-${role}`);
-                if (!list) break;
+    const role = form.dataset.role;
+    const list = document.getElementById(`onboarding-steps-list-${role}`);
+    if (!list) break;
 
-                list.querySelector('p')?.remove();
+    list.querySelector('p')?.remove();
 
-                const item = data.item;
-                const fileInfo = item.file_path ? `<p class="text-xs text-green-600">Файл: ${item.file_type}</p>` : '';
-                const newStepHTML = `
-                <div class="quiz-card flex justify-between items-start bg-white p-3 rounded-lg shadow-sm border" data-id="${item.id}">
-                   <div>
-                       <p class="font-medium">${item.message_text || "Только файл"}</p>
-                       ${fileInfo}
-                   </div>
-                    <form action="${item.delete_url}" method="POST" data-action="delete-item" data-confirm="Удалить шаг?" data-parent-selector="div.quiz-card">
-                      <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
-                    </form>
-                </div>`;
-                appendAndReveal(list, newStepHTML);
-                form.reset();
-                if (modal) window.closeModal(modal);
-                break;
-            }
+    const item = data.item;
+    const fileInfo = item.file_path ? `<p class="text-xs text-green-600">Файл: ${item.file_type}</p>` : '';
+    const newStepHTML = `
+    <div class="quiz-card flex justify-between items-start bg-white p-3 rounded-lg shadow-sm border" data-id="${item.id}">
+       <div>
+           <p class="font-medium">${item.message_text || "Только файл"}</p>
+           ${fileInfo}
+       </div>
+        <form action="${item.delete_url}" method="POST" data-action="delete-item" data-confirm="Удалить шаг?" data-parent-selector="div.quiz-card">
+          <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+        </form>
+    </div>`;
+    appendAndReveal(list, newStepHTML);
+
+    const uploadStatusEl = form.querySelector('[data-upload-status]');
+    if (uploadStatusEl) {
+        uploadStatusEl.textContent = 'Файл загружен ✅';
+        uploadStatusEl.classList.remove('hidden');
+    }
+
+    form.reset();
+    if (modal) window.closeModal(modal);
+    break;
+}
+
             // Simple actions that just show a message and close the modal
             case 'update-text':
             case 'simple-action':

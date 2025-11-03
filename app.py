@@ -33,7 +33,7 @@ from models import (
     RoleOnboarding, Topic, RegCode, ArchivedEmployee, Attendance,
     ArchivedAttendance, ArchivedIdea, Role,
     BotText, OnboardingQuestion, OnboardingStep, EmployeeCustomData, RoleGuide, GroupChat,
-    ConfigSetting
+    ConfigSetting, CircleVideo,
 )
 
 # --- НАСТРОЙКА ПРИЛОЖЕНИЯ ---
@@ -44,6 +44,11 @@ UPLOAD_FOLDER_ONBOARDING = 'uploads/onboarding'
 UPLOAD_FOLDER_TOPICS = 'uploads/topics'
 app.config['UPLOAD_FOLDER_ONBOARDING'] = UPLOAD_FOLDER_ONBOARDING
 app.config['UPLOAD_FOLDER_TOPICS'] = UPLOAD_FOLDER_TOPICS
+
+UPLOAD_FOLDER_CIRCLES = 'uploads/circles'
+app.config['UPLOAD_FOLDER_CIRCLES'] = UPLOAD_FOLDER_CIRCLES
+os.makedirs(UPLOAD_FOLDER_CIRCLES, exist_ok=True)
+
 
 os.makedirs(UPLOAD_FOLDER_ONBOARDING, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER_TOPICS, exist_ok=True)
@@ -70,6 +75,21 @@ ONBOARDING_DATA_KEYS = {
 
 # простой кэш в памяти процесса
 CONFIG_CACHE: dict[str, str] = {}
+
+def make_circle_filename(original_filename: str) -> str:
+    """
+    Делает нормальное имя для круглёжки:
+    circle_20251031_213045_ab12cd.mp4
+    """
+    base, ext = os.path.splitext(original_filename)
+    ext = (ext or "").lower()
+    if ext not in {".mp4", ".webm", ".mov"}:
+        # tg чаще всего отдает mp4/webm, всё остальное приводим к mp4
+        ext = ".mp4"
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    rand = "".join(random.choices("abcdef0123456789", k=6))
+    return f"circle_{ts}_{rand}{ext}"
+
 
 def get_config_value(key: str, default: str = "") -> str:
     """Получает значение настройки из БД. Создает с default, если не найдено."""
@@ -1327,6 +1347,52 @@ def debug_diag_chat():
     except RuntimeError:
         return jsonify(ok=False, error="event loop busy, retry once"), 503
     return jsonify(ok=True, **res)
+
+@app.route("/circle/upload", methods=["POST"])
+@login_required
+def upload_circle_video():
+    # Важно: форма должна отправлять file под именем "file"
+    file = request.files.get("file")
+    if not file or file.filename == "":
+        return jsonify({"success": False, "message": "Файл не передан", "category": "danger"}), 400
+
+    # генерим наше служебное имя
+    new_filename = make_circle_filename(file.filename)
+    save_path = os.path.join(app.config['UPLOAD_FOLDER_CIRCLES'], new_filename)
+    file.save(save_path)
+
+    uploaded_by = session.get("admin_username") or "admin"
+
+    # пишем в БД уже НОВОЕ имя
+    with get_session() as db:
+        circle = CircleVideo(
+            stored_filename=new_filename,
+            original_filename=file.filename,
+            uploaded_by=uploaded_by,
+        )
+        db.add(circle)
+        db.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Видео успешно загружено и переименовано.",
+        "category": "success",
+        "item": {
+            "id": circle.id,
+            "stored_filename": circle.stored_filename,
+            "original_filename": circle.original_filename,
+            "url": url_for("serve_circle_video", filename=circle.stored_filename)
+        }
+    })
+
+
+@app.route("/circle/files/<path:filename>")
+@login_required
+def serve_circle_video(filename):
+    path = os.path.join(app.config['UPLOAD_FOLDER_CIRCLES'], filename)
+    if not os.path.exists(path):
+        return "File not found", 404
+    return send_file(path)
 
 
 # --- ЗАПУСК ПРИЛОЖЕНИЯ ---

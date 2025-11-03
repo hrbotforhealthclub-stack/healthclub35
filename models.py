@@ -199,6 +199,18 @@ class ConfigSetting(Base):
     key = Column(String(50), primary_key=True)
     value = Column(Text, nullable=True)
 
+class CircleVideo(Base):
+    __tablename__ = "circle_videos"
+
+    id = Column(Integer, primary_key=True)
+    # имя файла, под которым реально лежит в файловой системе
+    stored_filename = Column(String(255), nullable=False)
+    # оригинальное имя, которое залил админ (можно оставить для истории)
+    original_filename = Column(String(255), nullable=True)
+    # кто загрузил — если хочешь, можно связать с Employee, пока оставим просто текст
+    uploaded_by = Column(String(120), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 # FSM States
 class Onboarding(StatesGroup):
     awaiting_answer = State()

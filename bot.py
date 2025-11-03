@@ -1309,7 +1309,7 @@ async def send_daily_weather():
         await asyncio.sleep(0.1)
 
 
-@scheduler.scheduled_job("cron", hour=00, minute=00)
+@scheduler.scheduled_job("cron", hour=10, minute=00)
 async def birthday_jobs():
     active_chats_str = get_config_value_sync("ACTIVE_CHAT_IDS", "")
     if not active_chats_str:
