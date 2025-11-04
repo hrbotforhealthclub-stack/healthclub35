@@ -438,10 +438,17 @@
                                     <h5 class="font-semibold text-md text-gray-700"><i class="bi bi-camera-reels-fill mr-2"></i>Шаги знакомства с компанией</h5>
                                     <div id="onboarding-steps-list-{{ role.name }}" class="quiz-list bg-gray-100 p-3 rounded-lg space-y-3 min-h-[150px]">
                                         {% for step in onboarding_constructor_data[role.name].steps %}
-                                        <div class="quiz-card flex justify-between items-start bg-white p-3 rounded-lg shadow-sm border" data-id="{{ step.id }}">
+<div class="quiz-card flex justify-between items-start bg-white p-3 rounded-lg shadow-sm border" data-id="{{ step.id }}">
                                            <div>
                                                <p class="font-medium">{{ step.message_text or "Только файл" }}</p>
-                                               {% if step.file_path %}<p class="text-xs text-green-600">Файл: {{ step.file_type }}</p>{% endif %}
+                                               {% if step.file_name %}
+                                                 <p class="text-xs text-green-600">
+                                                   Файл: {{ step.file_type }}
+                                                   (<a href="{{ url_for('serve_onboarding_step_file', step_id=step.id) }}" target="_blank" class="text-blue-600 hover:underline">
+                                                     {{ step.file_name }}
+                                                   </a>)
+                                                 </p>
+                                               {% endif %}
                                            </div>
                                             <form action="{{ url_for('delete_onboarding_step', step_id=step.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить шаг?" data-parent-selector="div.quiz-card">
                                               <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
@@ -488,11 +495,18 @@
                         <div class="accordion-content border-t p-6">
                             <div id="guides-list-{{ role.name }}" class="space-y-3 mb-6">
                                 {% for guide in role_guides_data[role.name] %}
-                                <div class="flex justify-between items-start bg-gray-50 p-3 rounded-lg shadow-sm border" data-id="{{ guide.id }}">
+<div class="flex justify-between items-start bg-gray-50 p-3 rounded-lg shadow-sm border" data-id="{{ guide.id }}">
                                     <div>
                                         <p class="font-semibold">{{ guide.title }}</p>
                                         <p class="text-xs text-gray-600">{{ guide.content }}</p>
-                                        {% if guide.file_path %}<p class="text-xs text-blue-600">Прикреплен файл</p>{% endif %}
+                                        {% if guide.file_name %}
+                                          <p class="text-xs text-blue-600">
+                                            Прикреплен файл:
+                                            <a href="{{ url_for('serve_role_guide_file', guide_id=guide.id) }}" target="_blank" class="hover:underline">
+                                              {{ guide.file_name }}
+                                            </a>
+                                          </p>
+                                        {% endif %}
                                     </div>
                                     <form action="{{ url_for('delete_guide', guide_id=guide.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить регламент?" data-parent-selector="div[data-id='{{ guide.id }}']">
                                         <button type="submit" class="p-1 text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
@@ -560,8 +574,13 @@
       <label class="block text-sm font-medium">Прикрепить/Заменить файл</label>
       <input type="file" name="file" class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100" />
       <p class="text-xs text-gray-400 hidden" data-upload-status>Файл выбран, идёт загрузка…</p>
-      {% if onboarding_info and onboarding_info.file_path %}
-        <small class="text-xs text-gray-500 current-file">Текущий: {{ onboarding_info.file_path }}</small>
+{% if onboarding_info and onboarding_info.file_name %}
+        <small class="text-xs text-gray-500 current-file">
+          Текущий:
+          <a href="{{ url_for('serve_role_onboarding_file', onboarding_id=onboarding_info.id) }}" target="_blank" class="text-blue-600 hover:underline">
+            {{ onboarding_info.file_name }}
+          </a>
+        </small>
       {% endif %}
     </div>
     <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition">Сохранить тренинг</button>
@@ -1706,7 +1725,7 @@
                 if (modal) window.closeModal(modal);
                 break;
             }
-            case 'add-onboarding-step': {
+case 'add-onboarding-step': {
     const role = form.dataset.role;
     const list = document.getElementById(`onboarding-steps-list-${role}`);
     if (!list) break;
@@ -1714,7 +1733,13 @@
     list.querySelector('p')?.remove();
 
     const item = data.item;
-    const fileInfo = item.file_path ? `<p class="text-xs text-green-600">Файл: ${item.file_type}</p>` : '';
+    let fileInfo = '';
+    if (item.file_url) { // Проверяем file_url (или file_name)
+        fileInfo = `<p class="text-xs text-green-600">
+                      Файл: ${item.file_type}
+                      (<a href="${item.file_url}" target="_blank" class="text-blue-600 hover:underline">${item.file_name || 'файл'}</a>)
+                    </p>`;
+    }
     const newStepHTML = `
     <div class="quiz-card flex justify-between items-start bg-white p-3 rounded-lg shadow-sm border" data-id="${item.id}">
        <div>
