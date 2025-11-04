@@ -581,10 +581,17 @@ def reorder_onboarding_question():
 @app.route('/onboarding/step/add/<path:role>', methods=['POST'])
 def add_onboarding_step(role):
     with get_session() as db:
+
+        # v-- ЭТИ СТРОКИ НУЖНО ДОБАВИТЬ --v
+        max_idx = db.query(func.max(OnboardingStep.order_index)).filter_by(role=role).scalar()
+        next_idx = (max_idx + 1) if max_idx is not None else 0
+        # ^-- КОНЕЦ НОВОГО КОДА --^
+
         new_step = OnboardingStep(
             role=role,
             message_text=request.form.get('message_text'),
-            file_type=request.form.get('file_type', 'document')
+            file_type=request.form.get('file_type', 'document'),
+            order_index=next_idx  # <-- И ОБЯЗАТЕЛЬНО ДОБАВИТЬ ЭТО ПОЛЕ
         )
 
         file_url = None
@@ -900,9 +907,13 @@ def add_quiz(role):
         qtype, question = request.form['question_type'], request.form['question']
         options = request.form.get('options') if qtype == 'choice' else None
         answer = request.form.get('answer') if qtype == 'choice' else request.form.get('text_answer')
-        max_idx = db.query(func.max(QuizQuestion.order_index)).filter_by(role=role).scalar() or -1
+
+        # --- ИСПРАВЛЕНИЕ ---
+        max_idx = db.query(func.max(QuizQuestion.order_index)).filter_by(role=role).scalar()
+        next_idx = (max_idx + 1) if max_idx is not None else 0
+
         new_q = QuizQuestion(role=role, question=question, answer=answer, question_type=qtype, options=options,
-                             order_index=max_idx + 1)
+                             order_index=next_idx)  # <-- Используем next_idx
         db.add(new_q)
         db.commit()
         return jsonify({
@@ -1049,9 +1060,12 @@ def delete_topic(topic_id):
 @app.route('/guide/add/<path:role>', methods=['POST'])
 def add_guide(role):
     with get_session() as db:
-        max_idx = db.query(func.max(RoleGuide.order_index)).filter_by(role=role).scalar() or -1
+        # --- ИСПРАВЛЕНИЕ ---
+        max_idx = db.query(func.max(RoleGuide.order_index)).filter_by(role=role).scalar()
+        next_idx = (max_idx + 1) if max_idx is not None else 0
+
         new_guide = RoleGuide(role=role, title=request.form['title'], content=request.form.get('content', ''),
-                              order_index=max_idx + 1)
+                              order_index=next_idx)  # <-- Используем next_idx
 
         if 'file' in request.files and request.files['file'].filename != '':
             file = request.files['file']
