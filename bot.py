@@ -48,14 +48,12 @@ from models import (
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///bot.db")
-OFFICE_LAT = float(os.getenv("OFFICE_LAT", "43.231518"))
-OFFICE_LON = float(os.getenv("OFFICE_LON", "76.882392"))
-OFFICE_RADIUS_METERS = int(os.getenv("OFFICE_RADIUS_METERS", "300"))
+# OFFICE_LAT, OFFICE_LON и OFFICE_RADIUS_METERS удалены.
+# Они будут загружаться из БД внутри функции process_time_tracking.
 # --- ИЗМЕНЕНИЕ: UPLOAD_FOLDER_ONBOARDING больше не нужен ---
 # UPLOAD_FOLDER_ONBOARDING = 'uploads/onboarding'
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_CITY = os.getenv("WEATHER_CITY", "Almaty")
-
 # — Логирование —
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -896,14 +894,33 @@ async def process_time_tracking(msg: Message, state: FSMContext, **kwargs):
     kind = data.get("tracking")
     await state.clear()
 
-    distance = haversine(
-        msg.location.latitude, msg.location.longitude,
-        OFFICE_LAT, OFFICE_LON
-    )
-    if distance > OFFICE_RADIUS_METERS:
-        return await msg.answer(f"❌ Слишком далеко от офиса ({int(distance)} м).")
-
+    # --- ИЗМЕНЕНИЕ: Загружаем настройки из БД ---
     with get_session() as db:
+        try:
+            # Используем get_config_value_sync, который уже есть в вашем коде
+            office_lat = float(get_config_value_sync("OFFICE_LAT", "0.0"))
+            office_lon = float(get_config_value_sync("OFFICE_LON", "0.0"))
+            office_radius = int(get_config_value_sync("OFFICE_RADIUS_METERS", "300"))
+
+            if office_lat == 0.0 or office_lon == 0.0:
+                logger.error("OFFICE_LAT или OFFICE_LON не найдены в config_settings БД.")
+                await msg.answer("❌ Ошибка конфигурации: не заданы координаты офиса. Обратитесь к администратору.")
+                return
+
+        except ValueError:
+            await msg.answer("❌ Ошибка конфигурации: неверные значения координат офиса в базе данных.")
+            return
+
+        distance = haversine(
+            msg.location.latitude, msg.location.longitude,
+            office_lat, office_lon  # Используем переменные из БД
+        )
+        if distance > office_radius:
+            return await msg.answer(f"❌ Слишком далеко от офиса ({int(distance)} м).")
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+        # Этот блок остается без изменений, но отступ `with` убран,
+        # так как `db` уже открыта выше.
         emp = db.query(Employee).filter_by(telegram_id=msg.from_user.id).first()
         almaty_now = now_almaty()
         today = almaty_now.date()
@@ -937,7 +954,6 @@ async def process_time_tracking(msg: Message, state: FSMContext, **kwargs):
 
         kb = admin_kb if emp.role == "Admin" else employee_main_kb
         await msg.answer(resp, reply_markup=kb)
-
 
 # --- Прочие функции сотрудника ---
 
