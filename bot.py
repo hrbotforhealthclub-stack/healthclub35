@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
+from zoneinfo import ZoneInfo
 import asyncio
 import logging
 import html
@@ -101,6 +101,7 @@ def initialize_bot_texts():
 
 # Вызываем функцию инициализации один раз при запуске
 initialize_bot_texts()
+ALMATY_TZ = ZoneInfo("Asia/Almaty")
 
 
 # — FSM States —
@@ -1309,7 +1310,7 @@ async def send_daily_weather():
         await asyncio.sleep(0.1)
 
 
-@scheduler.scheduled_job("cron", hour=10, minute=00)
+@scheduler.scheduled_job("cron", hour=00, minute=00)
 async def birthday_jobs():
     active_chats_str = get_config_value_sync("ACTIVE_CHAT_IDS", "")
     if not active_chats_str:
@@ -1318,7 +1319,8 @@ async def birthday_jobs():
                 cid.strip() and cid.strip().lstrip('-').isdigit()]
     if not chat_ids: return
 
-    today_md = datetime.now().strftime("%m-%d")
+    almaty_today = datetime.now(ALMATY_TZ).date()
+    today_md = almaty_today.strftime("%m-%d")
     with get_session() as db:
         engine_url = make_url(os.getenv("DATABASE_URL", "sqlite:///bot.db"))
         if engine_url.get_backend_name().startswith("postgres"):
