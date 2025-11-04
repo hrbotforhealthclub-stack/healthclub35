@@ -744,7 +744,15 @@
                       {{ topic.title }}
                       <p class="text-xs text-gray-500 whitespace-normal">{{ topic.content[:80] }}...</p>
                     </td>
-                    <td class="px-6 py-4 text-xs">{{ topic.image_path or 'Нет' }}</td>
+                    <td class="px-6 py-4 text-xs">
+  {% if topic.image_name %}
+    <a href="{{ url_for('serve_topic_image', topic_id=topic.id) }}" target="_blank" class="text-blue-600 hover:underline">
+      {{ topic.image_name }}
+    </a>
+  {% else %}
+    Нет
+  {% endif %}
+</td>
                     <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                        <button data-modal-target="edit-topic-{{ topic.id }}" class="p-2 text-gray-500 hover:text-primary rounded-full hover:bg-gray-100 transition"><i class="bi bi-pencil-fill"></i></button>
                        <form action="{{ url_for('delete_topic', topic_id=topic.id) }}" method="POST" data-action="delete-item" data-confirm="Удалить тему?" data-parent-selector="tr" class="inline">
@@ -1055,9 +1063,14 @@
     <label class="block text-sm font-medium">Заменить изображение (необязательно)</label>
     <input type="file" name="image" class="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100" accept="image/*" />
     <p class="text-xs text-gray-400 hidden" data-upload-status>Файл выбран, идёт загрузка…</p>
-    {% if topic.image_path %}
-      <small class="text-xs text-gray-500">Текущее: {{ topic.image_path }}</small>
-    {% endif %}
+    {% if topic.image_name %}
+  <small class="text-xs text-gray-500">
+    Текущее:
+    <a href="{{ url_for('serve_topic_image', topic_id=topic.id) }}" target="_blank" class="text-blue-600 hover:underline">
+      {{ topic.image_name }}
+    </a>
+  </small>
+{% endif %}
   </div>
   <div class="flex justify-end space-x-3 pt-4">
     <button type="button" data-modal-close class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg">Отмена</button>
