@@ -217,20 +217,23 @@ def get_config_value_sync(key: str, default: str = "") -> str:
 
 
 def access_check(func):
-    """Декоратор, который проверяет, прошел ли пользователь тренинг."""
+    """Декоратор: пускаем только активных сотрудников с пройденным тренингом."""
 
     async def wrapper(message_or_cb: Message | CallbackQuery, state: FSMContext, *args, **kwargs):
         user_id = message_or_cb.from_user.id
         with get_session() as db:
             emp = db.query(Employee).filter_by(telegram_id=user_id).first()
 
+        # 1) Не сотрудник или деактивирован — не пускаем
         if not emp or not emp.is_active:
-            await func(message_or_cb, state, *args, **kwargs)
+            msg = message_or_cb.message if isinstance(message_or_cb, CallbackQuery) else message_or_cb
+            await msg.answer("Доступ только для сотрудников. Введите регистрационный код, чтобы продолжить.")
+            if isinstance(message_or_cb, CallbackQuery):
+                await message_or_cb.answer()
             return
 
-        if emp.training_passed:
-            await func(message_or_cb, state, *args, **kwargs)
-        else:
+        # 2) Требуется тренинг — не пускаем (для действующих он проставляется кнопкой)
+        if not emp.training_passed:
             msg = message_or_cb.message if isinstance(message_or_cb, CallbackQuery) else message_or_cb
             await msg.answer(
                 get_text("access_denied_training_required", "Пожалуйста, завершите тренинг для доступа к функциям."),
@@ -238,8 +241,13 @@ def access_check(func):
             )
             if isinstance(message_or_cb, CallbackQuery):
                 await message_or_cb.answer()
+            return
+
+        # 3) Всё ок — выполняем исходный хэндлер
+        return await func(message_or_cb, state, *args, **kwargs)
 
     return wrapper
+
 
 
 def upsert_groupchat(db, chat, is_admin: bool):
