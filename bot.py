@@ -103,6 +103,8 @@ def initialize_bot_texts():
 initialize_bot_texts()
 ALMATY_TZ = ZoneInfo("Asia/Almaty")
 
+def now_almaty() -> datetime:
+    return datetime.now(ALMATY_TZ)
 
 # — FSM States —
 class Reg(StatesGroup):
@@ -247,8 +249,6 @@ def access_check(func):
         return await func(message_or_cb, state, *args, **kwargs)
 
     return wrapper
-
-
 
 def upsert_groupchat(db, chat, is_admin: bool):
     """Обновляет или создает запись о группе в БД."""
@@ -891,8 +891,9 @@ async def process_time_tracking(msg: Message, state: FSMContext, **kwargs):
 
     with get_session() as db:
         emp = db.query(Employee).filter_by(telegram_id=msg.from_user.id).first()
-        today = date.today()
-        now = datetime.now().time()
+        almaty_now = now_almaty()
+        today = almaty_now.date()
+        now = almaty_now.time()
         rec = db.query(Attendance).filter_by(employee_id=emp.id, date=today).first()
         if not rec:
             rec = Attendance(employee_id=emp.id, date=today)
@@ -929,8 +930,15 @@ async def process_time_tracking(msg: Message, state: FSMContext, **kwargs):
 @dp.message(F.text == "🎉 Посмотреть ивенты")
 @access_check
 async def view_events(msg: Message, state: FSMContext, **kwargs):
+    almaty_now = now_almaty().replace(tzinfo=None)
     with get_session() as db:
-        upcoming_events = db.query(Event).filter(Event.event_date >= datetime.now()).order_by(Event.event_date).all()
+        upcoming_events = (
+            db.query(Event)
+            .filter(Event.event_date >= almaty_now)
+            .order_by(Event.event_date)
+            .all()
+        )
+
     if not upcoming_events:
         await msg.answer("😢 Пока нет предстоящих ивентов.")
         return
