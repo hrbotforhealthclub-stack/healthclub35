@@ -530,7 +530,7 @@ def update_text(text_id):
 def add_onboarding_question(role):
     with get_session() as db:
         max_idx = db.query(func.max(OnboardingQuestion.order_index)).filter_by(role=role).scalar()
-        next_idx = (max_idx or -1) + 1
+        next_idx = (max_idx + 1) if max_idx is not None else 0
         new_q = OnboardingQuestion(
             role=role,
             question_text=request.form['question_text'],
