@@ -191,6 +191,17 @@ PAGE_SIZE = 5
 
 # --- Вспомогательные функции ---
 
+def render_rich(text: str | None) -> str:
+    """Готовит текст с HTML для Telegram: нормализует \\n и чистит опасные теги."""
+    if not text:
+        return ""
+    # Приводим литералы \n к настоящим переносам
+    s = text.replace("\\n", "\n").replace("\r\n", "\n").replace("\\t", "\t")
+    # Удаляем заведомо опасные блоки (минимальная санация)
+    s = re.sub(r"(?is)<(script|style)\b[^>]*>.*?</\1>", "", s)
+    return s
+
+
 def get_text(key: str, default: str = "Текст не найден") -> str:
     """Получает текст для бота из БД по ключу."""
     with get_session() as db:
@@ -1186,7 +1197,7 @@ async def show_role_guides(cb: CallbackQuery):
     for guide in guides:
         text = f"<b>{html.escape(guide.title)}</b>"
         if guide.content:
-            text += f"\n\n{html.escape(guide.content)}"
+            text += f"\n\n{render_rich(guide.content)}"
         await cb.message.answer(text)
         if guide.file_path and os.path.exists(guide.file_path):
             try:
@@ -1243,7 +1254,7 @@ async def view_kb_topic(cb: CallbackQuery):
         await cb.answer("Статья не найдена!", show_alert=True)
         return
 
-    text_content = f"<b>{html.escape(topic.title)}</b>\n\n{html.escape(topic.content)}"
+    text_content = f"<b>{html.escape(topic.title)}</b>\n\n{render_rich(topic.content)}"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Назад к списку", callback_data=f"back_to_kb_list:{page_to_return}")]])
     await cb.message.delete()
