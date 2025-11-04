@@ -10,7 +10,7 @@ import random
 import asyncio
 import threading
 import html
-import shutil
+# import shutil  <-- Больше не нужен
 import io
 from datetime import datetime, date, time, timedelta
 from functools import wraps
@@ -40,18 +40,17 @@ from models import (
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "a_very_secret_key_for_flask")
 
-UPLOAD_FOLDER_ONBOARDING = 'uploads/onboarding'
-UPLOAD_FOLDER_TOPICS = 'uploads/topics'
-app.config['UPLOAD_FOLDER_ONBOARDING'] = UPLOAD_FOLDER_ONBOARDING
-app.config['UPLOAD_FOLDER_TOPICS'] = UPLOAD_FOLDER_TOPICS
+# UPLOAD_FOLDER_* и os.makedirs* больше не нужны, т.к. всё в БД
+# UPLOAD_FOLDER_ONBOARDING = 'uploads/onboarding'
+# UPLOAD_FOLDER_TOPICS = 'uploads/topics'
+# app.config['UPLOAD_FOLDER_ONBOARDING'] = UPLOAD_FOLDER_ONBOARDING
+# app.config['UPLOAD_FOLDER_TOPICS'] = UPLOAD_FOLDER_TOPICS
+# UPLOAD_FOLDER_CIRCLES = 'uploads/circles'
+# app.config['UPLOAD_FOLDER_CIRCLES'] = UPLOAD_FOLDER_CIRCLES
+# os.makedirs(UPLOAD_FOLDER_CIRCLES, exist_ok=True)
+# os.makedirs(UPLOAD_FOLDER_ONBOARDING, exist_ok=True)
+# os.makedirs(UPLOAD_FOLDER_TOPICS, exist_ok=True)
 
-UPLOAD_FOLDER_CIRCLES = 'uploads/circles'
-app.config['UPLOAD_FOLDER_CIRCLES'] = UPLOAD_FOLDER_CIRCLES
-os.makedirs(UPLOAD_FOLDER_CIRCLES, exist_ok=True)
-
-
-os.makedirs(UPLOAD_FOLDER_ONBOARDING, exist_ok=True)
-os.makedirs(UPLOAD_FOLDER_TOPICS, exist_ok=True)
 
 # Эта команда создаст таблицы, если их нет. Для изменений используйте миграции Alembic.
 Base.metadata.create_all(engine)
@@ -70,25 +69,14 @@ ONBOARDING_DATA_KEYS = {
     'tshirt_size': 'Размер футболки (дополнительное поле)'
 }
 
-
 # --- ХЕЛПЕРЫ ДЛЯ КОНФИГУРАЦИИ В БД ---
 
 # простой кэш в памяти процесса
 CONFIG_CACHE: dict[str, str] = {}
 
-def make_circle_filename(original_filename: str) -> str:
-    """
-    Делает нормальное имя для круглёжки:
-    circle_20251031_213045_ab12cd.mp4
-    """
-    base, ext = os.path.splitext(original_filename)
-    ext = (ext or "").lower()
-    if ext not in {".mp4", ".webm", ".mov"}:
-        # tg чаще всего отдает mp4/webm, всё остальное приводим к mp4
-        ext = ".mp4"
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    rand = "".join(random.choices("abcdef0123456789", k=6))
-    return f"circle_{ts}_{rand}{ext}"
+
+# make_circle_filename больше не нужен
+# def make_circle_filename(original_filename: str) -> str: ...
 
 
 def get_config_value(key: str, default: str = "") -> str:
@@ -105,6 +93,7 @@ def get_config_value(key: str, default: str = "") -> str:
             db.add(setting)
         db.commit()
         return default
+
 
 def _collect_upcoming_birthdays(employees, days_ahead: int = 7):
     """Вернёт список сотрудников, у кого ДР в ближайшие days_ahead дней."""
@@ -143,6 +132,8 @@ def _collect_upcoming_birthdays(employees, days_ahead: int = 7):
     # чтобы сначала были "сегодня/завтра"
     result.sort(key=lambda x: x["in_days"])
     return result
+
+
 def save_employee_custom_field(employee_id: int, data_key: str, data_value: str):
     """Создаёт или обновляет кастомное поле сотрудника (онбординг)."""
     if not data_key:
@@ -150,8 +141,8 @@ def save_employee_custom_field(employee_id: int, data_key: str, data_value: str)
     with get_session() as db:
         obj = (
             db.query(EmployeeCustomData)
-              .filter_by(employee_id=employee_id, data_key=data_key)
-              .first()
+            .filter_by(employee_id=employee_id, data_key=data_key)
+            .first()
         )
         if obj:
             obj.data_value = data_value
@@ -214,6 +205,7 @@ def fmt_dt(value, fmt='%Y-%m-%d %H:%M'):
 
 def _run_async_bg(coro):
     """Запуск корутины в отдельном event loop в фоне, всегда стабильно."""
+
     def runner():
         new_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(new_loop)
@@ -253,6 +245,8 @@ def login_required(view_func):
 @app.before_request
 def require_login_for_all():
     open_paths = {"/login", "/logout", "/landing"}
+    # Добавляем маршруты для файлов, если хотим, чтобы они были видны без логина
+    # (но лучше оставить @login_required на самих маршрутах)
     if request.path.startswith("/static"):
         return
     if request.path in open_paths:
@@ -372,6 +366,8 @@ def list_admin_groups_from_db_only():
             }
             for r in rows
         ]
+
+
 @app.route('/')
 def index():
     # УЛУЧШЕНИЕ: Проверяем токен при загрузке главной страницы
@@ -388,35 +384,35 @@ def index():
         events = db.query(Event).order_by(Event.event_date.desc()).all()
         ideas = (
             db.query(Idea, Employee.name)
-              .outerjoin(Employee, Idea.employee_id == Employee.id)
-              .order_by(Idea.submission_date.desc())
-              .all()
+            .outerjoin(Employee, Idea.employee_id == Employee.id)
+            .order_by(Idea.submission_date.desc())
+            .all()
         )
         topics = db.query(Topic).order_by(Topic.title).all()
         roles = db.query(Role).order_by(Role.name).all()
         bot_texts = db.query(BotText).order_by(BotText.id).all()
         attendance_records = (
             db.query(Attendance, Employee.name)
-              .join(Employee, Attendance.employee_id == Employee.id)
-              .order_by(Attendance.date.desc(), Attendance.arrival_time.desc())
-              .all()
+            .join(Employee, Attendance.employee_id == Employee.id)
+            .order_by(Attendance.date.desc(), Attendance.arrival_time.desc())
+            .all()
         )
 
         # ВАЖНО: тащим всё разом, а не по роли
         all_questions = (
             db.query(OnboardingQuestion)
-              .order_by(OnboardingQuestion.role, OnboardingQuestion.order_index)
-              .all()
+            .order_by(OnboardingQuestion.role, OnboardingQuestion.order_index)
+            .all()
         )
         all_steps = (
             db.query(OnboardingStep)
-              .order_by(OnboardingStep.role, OnboardingStep.order_index)
-              .all()
+            .order_by(OnboardingStep.role, OnboardingStep.order_index)
+            .all()
         )
         all_guides = (
             db.query(RoleGuide)
-              .order_by(RoleGuide.role, RoleGuide.order_index)
-              .all()
+            .order_by(RoleGuide.role, RoleGuide.order_index)
+            .all()
         )
         all_custom_data = (
             db.query(EmployeeCustomData)
@@ -516,6 +512,7 @@ def index():
         upcoming_birthdays=upcoming_birthdays,
     )
 
+
 # --- AJAX-МАРШРУТЫ (CRUD) ---
 
 @app.route('/texts/update/<string:text_id>', methods=['POST'])
@@ -589,22 +586,29 @@ def add_onboarding_step(role):
             message_text=request.form.get('message_text'),
             file_type=request.form.get('file_type', 'document')
         )
+
+        file_url = None
         if 'file' in request.files and request.files['file'].filename != '':
             file = request.files['file']
-            filename = secure_filename(f"{role.lower().replace('/', '_')}_step_{file.filename}")
-            upload_folder = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], 'steps')
-            os.makedirs(upload_folder, exist_ok=True)
-            file_path = os.path.join(upload_folder, filename)
-            file.save(file_path)
-            new_step.file_path = file_path
+            # Читаем файл в память и сохраняем в БД
+            new_step.file_data = file.read()
+            new_step.file_mime = file.mimetype
+            new_step.file_name = secure_filename(file.filename)
+
         db.add(new_step)
-        db.commit()
+        db.commit()  # commit, чтобы получить new_step.id
+
+        if new_step.file_data:
+            file_url = url_for('serve_onboarding_step_file', step_id=new_step.id)
 
         return jsonify({
             "success": True, "message": "Новый шаг знакомства добавлен.", "category": "success",
             "item": {
                 "id": new_step.id, "message_text": new_step.message_text, "file_type": new_step.file_type,
-                "file_path": new_step.file_path, "delete_url": url_for('delete_onboarding_step', step_id=new_step.id)
+                # "file_path": new_step.file_path, <-- Убрали
+                "file_url": file_url,  # <-- Добавили
+                "file_name": new_step.file_name,
+                "delete_url": url_for('delete_onboarding_step', step_id=new_step.id)
             }
         })
 
@@ -614,12 +618,13 @@ def delete_onboarding_step(step_id):
     with get_session() as db:
         step = db.get(OnboardingStep, step_id)
         if step:
-            if step.file_path and os.path.exists(step.file_path):
-                os.remove(step.file_path)
+            # if step.file_path and os.path.exists(step.file_path): <-- Больше не нужно
+            #     os.remove(step.file_path) <-- Больше не нужно
             db.delete(step)
             db.commit()
             return jsonify({"success": True, "message": "Шаг знакомства удален.", "category": "warning"})
     return jsonify({"success": False, "message": "Шаг не найден.", "category": "danger"}), 404
+
 
 @app.post("/api/onboarding/save_custom_data")
 def api_onboarding_save_custom_data():
@@ -825,7 +830,6 @@ def edit_employee(emp_id):
     })
 
 
-
 @app.route('/employee/dismiss/<int:emp_id>', methods=['POST'])
 def dismiss_employee(emp_id):
     with get_session() as db:
@@ -875,14 +879,17 @@ def update_onboarding(role):
         if not onboarding:
             onboarding = RoleOnboarding(role=role)
             db.add(onboarding)
+
         onboarding.text = request.form['text']
         onboarding.file_type = request.form['file_type']
+
         if 'file' in request.files and request.files['file'].filename != '':
             file = request.files['file']
-            filename = secure_filename(f"{role.lower().replace('/', '_')}_{file.filename}")
-            file_path = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], filename)
-            file.save(file_path)
-            onboarding.file_path = file_path
+            # Читаем в БД
+            onboarding.file_data = file.read()
+            onboarding.file_mime = file.mimetype
+            onboarding.file_name = secure_filename(file.filename)
+
         db.commit()
     return jsonify({"success": True, "message": f"Онбординг для '{role}' обновлен.", "category": "success"})
 
@@ -994,12 +1001,14 @@ def delete_idea(idea_id):
 def add_topic():
     with get_session() as db:
         new_topic = Topic(title=request.form['title'], content=request.form['content'])
+
         if 'image' in request.files and request.files['image'].filename != '':
             file = request.files['image']
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER_TOPICS'], filename)
-            file.save(file_path)
-            new_topic.image_path = file_path
+            # Читаем в БД
+            new_topic.image_data = file.read()
+            new_topic.image_mime = file.mimetype
+            new_topic.image_name = secure_filename(file.filename)
+
         db.add(new_topic)
         db.commit()
     return jsonify({"success": True, "message": "Новая тема создана.", "category": "success", "action": "reload"})
@@ -1010,14 +1019,17 @@ def edit_topic(topic_id):
     with get_session() as db:
         topic = db.get(Topic, topic_id)
         if not topic: return jsonify({"success": False, "message": "Тема не найдена.", "category": "danger"}), 404
+
         topic.title, topic.content = request.form['title'], request.form['content']
+
         if 'image' in request.files and request.files['image'].filename != '':
             file = request.files['image']
-            if topic.image_path and os.path.exists(topic.image_path): os.remove(topic.image_path)
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER_TOPICS'], filename)
-            file.save(file_path)
-            topic.image_path = file_path
+            # if topic.image_path and os.path.exists(topic.image_path): os.remove(topic.image_path) <-- Убрали
+            # Читаем в БД
+            topic.image_data = file.read()
+            topic.image_mime = file.mimetype
+            topic.image_name = secure_filename(file.filename)
+
         db.commit()
     return jsonify({"success": True, "message": "Тема обновлена.", "category": "success", "action": "reload"})
 
@@ -1027,7 +1039,7 @@ def delete_topic(topic_id):
     with get_session() as db:
         topic = db.get(Topic, topic_id)
         if topic:
-            if topic.image_path and os.path.exists(topic.image_path): os.remove(topic.image_path)
+            # if topic.image_path and os.path.exists(topic.image_path): os.remove(topic.image_path) <-- Убрали
             db.delete(topic)
             db.commit()
             return jsonify({"success": True, "message": "Тема удалена.", "category": "warning", "action": "reload"})
@@ -1040,14 +1052,14 @@ def add_guide(role):
         max_idx = db.query(func.max(RoleGuide.order_index)).filter_by(role=role).scalar() or -1
         new_guide = RoleGuide(role=role, title=request.form['title'], content=request.form.get('content', ''),
                               order_index=max_idx + 1)
+
         if 'file' in request.files and request.files['file'].filename != '':
             file = request.files['file']
-            upload_folder = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], 'guides')
-            os.makedirs(upload_folder, exist_ok=True)
-            filename = secure_filename(f"{role.lower().replace('/', '_')}_guide_{file.filename}")
-            file_path = os.path.join(upload_folder, filename)
-            file.save(file_path)
-            new_guide.file_path = file_path
+            # Читаем в БД
+            new_guide.file_data = file.read()
+            new_guide.file_mime = file.mimetype
+            new_guide.file_name = secure_filename(file.filename)
+
         db.add(new_guide)
         db.commit()
     return jsonify({"success": True, "message": "Новый регламент добавлен.", "category": "success", "action": "reload"})
@@ -1058,7 +1070,7 @@ def delete_guide(guide_id):
     with get_session() as db:
         guide = db.get(RoleGuide, guide_id)
         if guide:
-            if guide.file_path and os.path.exists(guide.file_path): os.remove(guide.file_path)
+            # if guide.file_path and os.path.exists(guide.file_path): os.remove(guide.file_path) <-- Убрали
             db.delete(guide)
             db.commit()
             return jsonify({"success": True, "message": "Регламент удален.", "category": "warning", "action": "reload"})
@@ -1110,14 +1122,13 @@ def copy_settings():
                 for step in source_steps:
                     new_step = OnboardingStep(role=target_role, message_text=step.message_text,
                                               file_type=step.file_type, order_index=step.order_index)
-                    if step.file_path and os.path.exists(step.file_path):
-                        filename = os.path.basename(step.file_path)
-                        new_filename = f"{target_role.lower().replace('/', '_')}_step_{filename.split('_step_')[-1]}"
-                        upload_folder = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], 'steps')
-                        os.makedirs(upload_folder, exist_ok=True)
-                        new_filepath = os.path.join(upload_folder, new_filename)
-                        shutil.copy(step.file_path, new_filepath)
-                        new_step.file_path = new_filepath
+
+                    # Копируем файл из БД
+                    if step.file_data:
+                        new_step.file_data = step.file_data
+                        new_step.file_mime = step.file_mime
+                        new_step.file_name = step.file_name
+
                     db.add(new_step)
 
             if 'training' in sections_to_copy:
@@ -1136,12 +1147,13 @@ def copy_settings():
                 if source_training:
                     new_training = RoleOnboarding(role=target_role, text=source_training.text,
                                                   file_type=source_training.file_type)
-                    if source_training.file_path and os.path.exists(source_training.file_path):
-                        filename = os.path.basename(source_training.file_path)
-                        new_filename = f"{target_role.lower().replace('/', '_')}_{filename.split('_', 1)[-1]}"
-                        new_filepath = os.path.join(app.config['UPLOAD_FOLDER_ONBOARDING'], new_filename)
-                        shutil.copy(source_training.file_path, new_filepath)
-                        new_training.file_path = new_filepath
+
+                    # Копируем файл из БД
+                    if source_training.file_data:
+                        new_training.file_data = source_training.file_data
+                        new_training.file_mime = source_training.file_mime
+                        new_training.file_name = source_training.file_name
+
                     db.add(new_training)
 
         db.commit()
@@ -1348,54 +1360,112 @@ def debug_diag_chat():
         return jsonify(ok=False, error="event loop busy, retry once"), 503
     return jsonify(ok=True, **res)
 
+
 @app.route("/circle/upload", methods=["POST"])
 @login_required
 def upload_circle_video():
-    # Важно: форма должна отправлять file под именем "file"
     file = request.files.get("file")
     if not file or file.filename == "":
         return jsonify({"success": False, "message": "Файл не передан", "category": "danger"}), 400
 
-    # генерим наше служебное имя
-    new_filename = make_circle_filename(file.filename)
-    save_path = os.path.join(app.config['UPLOAD_FOLDER_CIRCLES'], new_filename)
-    file.save(save_path)
+    # Читаем в память
+    file_bytes = file.read()
+    mime_type = file.mimetype
+    original_name = secure_filename(file.filename)
 
     uploaded_by = session.get("admin_username") or "admin"
 
-    # пишем в БД уже НОВОЕ имя
+    # пишем в БД
     with get_session() as db:
         circle = CircleVideo(
-            stored_filename=new_filename,
-            original_filename=file.filename,
+            file_data=file_bytes,
+            file_mime=mime_type,
+            original_filename=original_name,
             uploaded_by=uploaded_by,
         )
         db.add(circle)
-        db.commit()
+        db.commit()  # commit, чтобы получить circle.id
 
     return jsonify({
         "success": True,
-        "message": "Видео успешно загружено и переименовано.",
+        "message": "Видео успешно загружено в БД.",
         "category": "success",
         "item": {
             "id": circle.id,
-            "stored_filename": circle.stored_filename,
+            # "stored_filename": circle.stored_filename, <-- Убрали
             "original_filename": circle.original_filename,
-            "url": url_for("serve_circle_video", filename=circle.stored_filename)
+            # Обновляем URL, чтобы он вёл на новый маршрут с ID
+            "url": url_for("serve_circle_video", circle_id=circle.id)
         }
     })
 
 
-@app.route("/circle/files/<path:filename>")
+# --- НОВЫЕ МАРШРУТЫ ДЛЯ ОТДАЧИ ФАЙЛОВ ИЗ БД ---
+
+def _serve_file_from_db(model_class, file_id: int):
+    """Хелпер для отдачи файла из БД по ID."""
+    with get_session() as db:
+        item = db.get(model_class, file_id)
+
+        if not item:
+            return "File not found by ID", 404
+
+        file_data, mime, name = None, None, None
+
+        # Проверяем атрибуты для разных моделей
+        if hasattr(item, 'file_data') and item.file_data:
+            file_data = item.file_data
+            mime = getattr(item, 'file_mime', 'application/octet-stream')
+            name = getattr(item, 'file_name', 'download')
+        elif hasattr(item, 'image_data') and item.image_data:  # для Topic
+            file_data = item.image_data
+            mime = getattr(item, 'image_mime', 'image/jpeg')
+            name = getattr(item, 'image_name', 'image.jpg')
+        elif hasattr(item, 'original_filename'):  # для CircleVideo
+            name = item.original_filename
+
+        if not file_data:
+            return "File data not found in record", 404
+
+        return send_file(
+            io.BytesIO(file_data),
+            mimetype=mime,
+            download_name=name,
+            as_attachment=False  # Показываем в браузере, если возможно
+        )
+
+
+@app.route("/circle/files/<int:circle_id>")
 @login_required
-def serve_circle_video(filename):
-    path = os.path.join(app.config['UPLOAD_FOLDER_CIRCLES'], filename)
-    if not os.path.exists(path):
-        return "File not found", 404
-    return send_file(path)
+def serve_circle_video(circle_id):
+    # Старый маршрут /circle/files/<path:filename> больше не нужен
+    return _serve_file_from_db(CircleVideo, circle_id)
+
+
+@app.route("/files/topic_image/<int:topic_id>")
+@login_required
+def serve_topic_image(topic_id):
+    return _serve_file_from_db(Topic, topic_id)
+
+
+@app.route("/files/onboarding_step/<int:step_id>")
+@login_required
+def serve_onboarding_step_file(step_id):
+    return _serve_file_from_db(OnboardingStep, step_id)
+
+
+@app.route("/files/role_guide/<int:guide_id>")
+@login_required
+def serve_role_guide_file(guide_id):
+    return _serve_file_from_db(RoleGuide, guide_id)
+
+
+@app.route("/files/role_onboarding/<int:onboarding_id>")
+@login_required
+def serve_role_onboarding_file(onboarding_id):
+    return _serve_file_from_db(RoleOnboarding, onboarding_id)
 
 
 # --- ЗАПУСК ПРИЛОЖЕНИЯ ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
-

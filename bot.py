@@ -24,7 +24,9 @@ from aiogram.types import (
     KeyboardButton, ReplyKeyboardMarkup,
     InlineKeyboardButton, InlineKeyboardMarkup,
     FSInputFile, ReplyKeyboardRemove,
-    ChatMemberUpdated
+    ChatMemberUpdated,
+    # --- ИЗМЕНЕНИЕ: Добавляем BufferedInputFile ---
+    BufferedInputFile
 )
 from aiogram.utils.chat_action import ChatActionSender
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -49,7 +51,8 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///bot.db")
 OFFICE_LAT = float(os.getenv("OFFICE_LAT", "43.231518"))
 OFFICE_LON = float(os.getenv("OFFICE_LON", "76.882392"))
 OFFICE_RADIUS_METERS = int(os.getenv("OFFICE_RADIUS_METERS", "300"))
-UPLOAD_FOLDER_ONBOARDING = 'uploads/onboarding'
+# --- ИЗМЕНЕНИЕ: UPLOAD_FOLDER_ONBOARDING больше не нужен ---
+# UPLOAD_FOLDER_ONBOARDING = 'uploads/onboarding'
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_CITY = os.getenv("WEATHER_CITY", "Almaty")
 
@@ -103,8 +106,10 @@ def initialize_bot_texts():
 initialize_bot_texts()
 ALMATY_TZ = ZoneInfo("Asia/Almaty")
 
+
 def now_almaty() -> datetime:
     return datetime.now(ALMATY_TZ)
+
 
 # — FSM States —
 class Reg(StatesGroup):
@@ -249,6 +254,7 @@ def access_check(func):
         return await func(message_or_cb, state, *args, **kwargs)
 
     return wrapper
+
 
 def upsert_groupchat(db, chat, is_admin: bool):
     """Обновляет или создает запись о группе в БД."""
@@ -520,9 +526,12 @@ async def run_company_introduction(user_id: int, state: FSMContext):
         if step.message_text:
             await bot.send_message(user_id, step.message_text)
 
-        if step.file_path and os.path.exists(step.file_path):
+        # --- ИЗМЕНЕНИЕ: Отправляем из БД (step.file_data) ---
+        if step.file_data:
             try:
-                file_to_send = FSInputFile(step.file_path)
+                # Используем BufferedInputFile для отправки байтов
+                file_to_send = BufferedInputFile(step.file_data, filename=step.file_name or "file")
+
                 if step.file_type == 'video_note':
                     await bot.send_video_note(user_id, file_to_send)
                 elif step.file_type == 'video':
@@ -532,7 +541,8 @@ async def run_company_introduction(user_id: int, state: FSMContext):
                 elif step.file_type == 'document':
                     await bot.send_document(user_id, file_to_send)
             except Exception as e:
-                logger.error(f"Failed to send file {step.file_path}: {e}")
+                # Логируем без file_path
+                logger.error(f"Failed to send file from DB for step {step.id}: {e}")
 
         await asyncio.sleep(1.5)
 
@@ -556,15 +566,19 @@ async def start_training(msg: Message, state: FSMContext):
 
     if onboarding and onboarding.text:
         await msg.answer(onboarding.text, reply_markup=ReplyKeyboardRemove())
-        if onboarding.file_path and os.path.exists(onboarding.file_path):
+
+        # --- ИЗМЕНЕНИЕ: Отправляем из БД (onboarding.file_data) ---
+        if onboarding.file_data:
             try:
-                file_to_send = FSInputFile(onboarding.file_path)
+                file_to_send = BufferedInputFile(onboarding.file_data, filename=onboarding.file_name or "file")
                 if onboarding.file_type == 'video_note':
                     await bot.send_video_note(msg.chat.id, file_to_send)
+                # (Добавьте photo, video, document, если нужно)
             except Exception as e:
-                logger.error(f"Failed to send training file {onboarding.file_path}: {e}")
+                logger.error(f"Failed to send training file from DB for role {onboarding.role}: {e}")
     else:
         await msg.answer("📚 Материалы для вашего тренинга пока не добавлены.")
+
     await msg.answer("Нажмите «✅ Ознакомился», когда будете готовы начать квиз.", reply_markup=ack_kb)
     await state.set_state(Training.waiting_ack)
 
@@ -1215,11 +1229,16 @@ async def show_role_guides(cb: CallbackQuery):
         if guide.content:
             text += f"\n\n{render_rich(guide.content)}"
         await cb.message.answer(text)
-        if guide.file_path and os.path.exists(guide.file_path):
+
+        # --- ИЗМЕНЕНИЕ: Отправляем из БД (guide.file_data) ---
+        if guide.file_data:
             try:
-                await cb.message.answer_document(FSInputFile(guide.file_path))
+                # Используем BufferedInputFile
+                await cb.message.answer_document(
+                    BufferedInputFile(guide.file_data, filename=guide.file_name or "document")
+                )
             except Exception as e:
-                logger.error(f"Не удалось отправить файл регламента {guide.file_path}: {e}")
+                logger.error(f"Не удалось отправить файл регламента из БД {guide.id}: {e}")
         await asyncio.sleep(0.5)
 
 
@@ -1274,12 +1293,19 @@ async def view_kb_topic(cb: CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Назад к списку", callback_data=f"back_to_kb_list:{page_to_return}")]])
     await cb.message.delete()
-    if topic.image_path and os.path.exists(topic.image_path):
+
+    # --- ИЗМЕНЕНИЕ: Отправляем из БД (topic.image_data) ---
+    if topic.image_data:
         try:
-            await bot.send_photo(chat_id=cb.message.chat.id, photo=FSInputFile(topic.image_path), caption=text_content,
-                                 reply_markup=kb)
+            await bot.send_photo(
+                chat_id=cb.message.chat.id,
+                # Используем BufferedInputFile
+                photo=BufferedInputFile(topic.image_data, filename=topic.image_name or "image.jpg"),
+                caption=text_content,
+                reply_markup=kb
+            )
         except Exception as e:
-            logger.error(f"Failed to send topic photo {topic.image_path}: {e}")
+            logger.error(f"Failed to send topic photo from DB {topic.id}: {e}")
             await bot.send_message(cb.message.chat.id, text_content, reply_markup=kb, disable_web_page_preview=True)
     else:
         await bot.send_message(cb.message.chat.id, text_content, reply_markup=kb, disable_web_page_preview=True)
@@ -1358,7 +1384,7 @@ async def birthday_jobs():
                                              Employee.is_active == True).all()
 
     if not emps: return
-    greeting_template = get_text("birthday_greeting", "🎂 Сегодня у {name} ({role}) день рождения! Поздравляем! 🎉")
+    greeting_template = get_text("birthday_greeting", "🎂 Сегодня у {name} ({role}) день рождения! Поздрявляем! 🎉")
     for emp in emps:
         greeting_text = greeting_template.format(name=html.escape(emp.name or ""), role=html.escape(emp.role or ""))
         for chat_id in chat_ids:
@@ -1427,7 +1453,8 @@ async def cancel_state_and_return(msg: Message, state: FSMContext):
 
 
 async def main():
-    os.makedirs(UPLOAD_FOLDER_ONBOARDING, exist_ok=True)
+    # --- ИЗМЕНЕНИЕ: os.makedirs больше не нужен ---
+    # os.makedirs(UPLOAD_FOLDER_ONBOARDING, exist_ok=True)
     await get_me_id()
     logger.info("DATABASE_URL=%s", DATABASE_URL)
     scheduler.start()
@@ -1438,4 +1465,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

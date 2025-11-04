@@ -1,8 +1,8 @@
 import os
-from datetime import datetime
+from datetime import datetime, date
 from sqlalchemy import (
     create_engine, Column, Integer, String, Date, Boolean,
-    ForeignKey, Time, Text, DateTime, BigInteger, UniqueConstraint, event
+    ForeignKey, Time, Text, DateTime, BigInteger, UniqueConstraint, event, LargeBinary
 )
 from sqlalchemy.orm import declarative_base, synonym
 from contextlib import contextmanager
@@ -17,6 +17,7 @@ Base = declarative_base()
 # создаём engine
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
+
 # 👇 ключевой кусок: заставляем каждое подключение говорить Postgres'у "я в UTF-8"
 @event.listens_for(engine, "connect")
 def set_client_encoding(dbapi_connection, connection_record):
@@ -25,7 +26,9 @@ def set_client_encoding(dbapi_connection, connection_record):
     cur.execute("SET client_encoding TO 'UTF8';")
     cur.close()
 
+
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+
 
 @contextmanager
 def get_session():
@@ -35,12 +38,14 @@ def get_session():
     finally:
         db.close()
 
+
 # --- МОДЕЛИ ---
 
 class Role(Base):
     __tablename__ = "roles"
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True, nullable=False)
+
 
 class Employee(Base):
     __tablename__ = "employees"
@@ -56,7 +61,8 @@ class Employee(Base):
     onboarding_completed = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     contact_info = Column(String(256), nullable=True)
-    photo_file_id = Column(String, nullable=True)
+    photo_file_id = Column(String, nullable=True)  # file_id телеграма, не требует LargeBinary
+
 
 class Attendance(Base):
     __tablename__ = "attendance"
@@ -67,11 +73,13 @@ class Attendance(Base):
     departure_time = Column(Time, nullable=True)
     __table_args__ = (UniqueConstraint("employee_id", "date", name="uix_attendance_emp_date"),)
 
+
 class RegCode(Base):
     __tablename__ = "reg_codes"
     code = Column(String(8), primary_key=True)
     email = Column(String, ForeignKey("employees.email"), nullable=False)
     used = Column(Boolean, default=False)
+
 
 class Event(Base):
     __tablename__ = "events"
@@ -81,6 +89,7 @@ class Event(Base):
     event_date = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+
 class Idea(Base):
     __tablename__ = "ideas"
     id = Column(Integer, primary_key=True)
@@ -88,12 +97,21 @@ class Idea(Base):
     text = Column(Text, nullable=False)
     submission_date = Column(DateTime, default=datetime.utcnow)
 
+
 class Topic(Base):
     __tablename__ = "topics"
     id = Column(Integer, primary_key=True)
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)
-    image_path = Column(String, nullable=True)
+
+    # --- Новые поля для хранения в БД ---
+    image_data = Column(LargeBinary, nullable=True)  # сам файл (BYTEA)
+    image_mime = Column(String(100), nullable=True)  # например, "image/png"
+    image_name = Column(String(255), nullable=True)  # оригинальное имя файла
+
+    # --- Старое поле (удалено) ---
+    # image_path = Column(String, nullable=True)
+
 
 class RoleGuide(Base):
     __tablename__ = "role_guides"
@@ -101,16 +119,32 @@ class RoleGuide(Base):
     role = Column(String, index=True, nullable=False)
     title = Column(String, nullable=False)
     content = Column(Text, nullable=True)
-    file_path = Column(String, nullable=True)
     order_index = Column(Integer, default=0)
+
+    # --- Новые поля ---
+    file_data = Column(LargeBinary, nullable=True)
+    file_mime = Column(String(100), nullable=True)
+    file_name = Column(String(255), nullable=True)
+
+    # --- Старое поле (удалено) ---
+    # file_path = Column(String, nullable=True)
+
 
 class RoleOnboarding(Base):
     __tablename__ = "role_onboarding"
     id = Column(Integer, primary_key=True)
     role = Column(String, unique=True, nullable=False)
     text = Column(String, nullable=False)
-    file_path = Column(String, nullable=True)
-    file_type = Column(String, default='document', nullable=False)
+    file_type = Column(String(50), default='document', nullable=False)
+
+    # --- Новые поля ---
+    file_data = Column(LargeBinary, nullable=True)
+    file_mime = Column(String(100), nullable=True)
+    file_name = Column(String(255), nullable=True)
+
+    # --- Старое поле (удалено) ---
+    # file_path = Column(String, nullable=True)
+
 
 class QuizQuestion(Base):
     __tablename__ = "quiz_questions"
@@ -122,6 +156,7 @@ class QuizQuestion(Base):
     options = Column(String, nullable=True)
     order_index = Column(Integer, nullable=False, default=0)
 
+
 class GroupChat(Base):
     __tablename__ = "group_chats"
     id = Column(Integer, primary_key=True)
@@ -132,6 +167,7 @@ class GroupChat(Base):
     type = Column(String, nullable=True)
     is_admin = Column(Boolean, default=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 
 class ArchivedEmployee(Base):
     __tablename__ = "archived_employees"
@@ -146,6 +182,7 @@ class ArchivedEmployee(Base):
     training_passed = Column(Boolean, default=False)
     dismissal_date = Column(DateTime, default=datetime.utcnow)
 
+
 class ArchivedAttendance(Base):
     __tablename__ = "archived_attendance"
     id = Column(Integer, primary_key=True)
@@ -154,11 +191,13 @@ class ArchivedAttendance(Base):
     arrival_time = Column(Time, nullable=True)
     departure_time = Column(Time, nullable=True)
 
+
 class BotText(Base):
     __tablename__ = "bot_texts"
     id = Column(String(50), primary_key=True)
     text = Column(Text, nullable=False, default="Текст не задан")
     description = Column(String, nullable=True)
+
 
 class OnboardingQuestion(Base):
     __tablename__ = "onboarding_questions"
@@ -170,6 +209,7 @@ class OnboardingQuestion(Base):
     is_required = Column(Boolean, default=True)
     __table_args__ = (UniqueConstraint("role", "order_index", name="onboarding_questions_role_order_key"),)
 
+
 class EmployeeCustomData(Base):
     __tablename__ = "employee_custom_data"
     id = Column(Integer, primary_key=True)
@@ -178,14 +218,23 @@ class EmployeeCustomData(Base):
     data_value = Column(Text, nullable=False)
     __table_args__ = (UniqueConstraint("employee_id", "data_key", name="u_employee_data_key"),)
 
+
 class OnboardingStep(Base):
     __tablename__ = "onboarding_steps"
     id = Column(Integer, primary_key=True)
     role = Column(String, index=True, nullable=False)
     order_index = Column(Integer, default=0)
     message_text = Column(Text, nullable=True)
-    file_path = Column(String, nullable=True)
     file_type = Column(String(20), nullable=True)
+
+    # --- Новые поля ---
+    file_data = Column(LargeBinary, nullable=True)
+    file_mime = Column(String(100), nullable=True)
+    file_name = Column(String(255), nullable=True)
+
+    # --- Старое поле (удалено) ---
+    # file_path = Column(String, nullable=True)
+
 
 class ArchivedIdea(Base):
     __tablename__ = "archived_ideas"
@@ -194,22 +243,29 @@ class ArchivedIdea(Base):
     idea_text = Column(Text, nullable=False)
     submission_date = Column(DateTime, default=datetime.utcnow)
 
+
 class ConfigSetting(Base):
     __tablename__ = "config_settings"
     key = Column(String(50), primary_key=True)
     value = Column(Text, nullable=True)
 
+
 class CircleVideo(Base):
     __tablename__ = "circle_videos"
 
     id = Column(Integer, primary_key=True)
-    # имя файла, под которым реально лежит в файловой системе
-    stored_filename = Column(String(255), nullable=False)
-    # оригинальное имя, которое залил админ (можно оставить для истории)
-    original_filename = Column(String(255), nullable=True)
-    # кто загрузил — если хочешь, можно связать с Employee, пока оставим просто текст
+
+    # --- Новые поля ---
+    file_data = Column(LargeBinary, nullable=False)
+    file_mime = Column(String(100), nullable=True)
+    original_filename = Column(String(255), nullable=True)  # Используем это вместо file_name
+
+    # --- Старые поля (удалены) ---
+    # stored_filename = Column(String(255), nullable=False)
+
     uploaded_by = Column(String(120), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
 
 # FSM States
 class Onboarding(StatesGroup):
